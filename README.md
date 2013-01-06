@@ -26,7 +26,7 @@ Just reference `Script.PagerApi.dll` from within your C#-Saltarelle projects. Re
 using PagerApi;
 ```    
 
-# How to use
+# How to use it
 
 First decide what history engine your are going to use in your web application. PagerJS 
 gives three choices:
