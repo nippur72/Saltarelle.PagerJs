@@ -1,0 +1,36 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+</head>
+<body>
+    <h1>Pager.JS API Test</h1>
+
+    <div style="display: block;" data-bind="page: {id: 'start', title: 'Pager.JS API Test'}">    
+        <ul>
+            <a href="#customwidgets">go to Custom Widget test</a>
+        </ul>
+    </div>    
+
+    <div style="display: block;" data-bind="page: {id: 'customwidgets'}" class="well">
+        <div data-bind="page-accordion-item: {id: 'zoidberg'}">
+            <a href="#customwidgets/zoidberg">Zoidberg</a>
+
+            <div style="display: none;">Zoidberg Information</div>
+        </div>
+        <div data-bind="page-accordion-item: {id: 'hermes'}">
+            <a href="#customwidgets/hermes">Hermes</a>
+
+            <div style="display: block;">Hermes Information</div>
+        </div>
+    </div>   
+</body>
+<script type="text/javascript" src="Scripts/jquery-1.8.3.min.js"></script>
+<script type="text/javascript" src="Scripts/knockout-2.2.0.js"></script>
+<script type="text/javascript" src="Scripts/pager.js"></script>
+<script type="text/javascript" src="Scripts/mscorlib.js" ></script>
+<script type="text/javascript" src="Scripts/testpagerapi.js" ></script>
+<script type="text/javascript">
+    $TestPagerApi_Program.$main();
+</script>
+</html>
