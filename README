@@ -1,7 +1,8 @@
 PagerJS API for C# / Saltarelle
 ===============================
 
-PagerJS Api is a import metadata library that lets you use PagerJs in projects written with the Saltarelle-compiler (C# to JavaScript).
+PagerJS Api is a import metadata library that lets you use <a href="http://oscar.finnsson.nu/pagerjs/">PagerJs</a> 
+in projects written with the <a href="http://www.saltarelle-compiler.com/">Saltarelle-compiler</a> (C# to JavaScript).
 
 What's includeded:
 
