@@ -45,6 +45,15 @@
         pager.navigationFailed = ko.observable();
 
         /**
+         * Called when a binding could not be applied.
+         *
+         * @var onBindingError
+         * @type {$.Callbacks}
+         * @static
+         */
+        pager.onBindingError = $.Callbacks();
+
+        /**
          *
          * @param {String[]} route
          */
@@ -53,6 +62,21 @@
             var trimmedRoute = (route && route.length === 1 && route[0] === '') ? [] : route;
             pager.page.showPage(trimmedRoute);
         };
+
+        pager.getParentPage = function (bindingContext) {
+            // search this context/$data until either root is accessed or no page is found
+            while (bindingContext) {
+                // get first parent page, but exclude pages with urlToggle: none
+                if (bindingContext.$page && bindingContext.$page.val('urlToggle') !== 'none') {
+                    return bindingContext.$page;
+                } else if (bindingContext.$data && bindingContext.$data.$__page__) {
+                    return bindingContext.$data.$__page__;
+                }
+                bindingContext = bindingContext.$parentContext;
+            }
+            return null;
+        };
+
 
 // common KnockoutJS helpers
         var _ko = {};
@@ -407,28 +431,31 @@
                 var vm = this.ctx;
                 var userParams = this.val('params') || {};
                 // for each param for URL
-                $.each(params, function (key, value) {
-
-                    if (Object.prototype.toString.call(userParams) === "[object Array]") {
-                        if ($.inArray(key, userParams) !== -1) { // make sure it's a valid param
-                            if (vm[key]) { // set observable ...
-                                vm[key](value);
-                            } else { // ... or create observable
-                                vm[key] = ko.observable(value);
-                            }
+                if($.isArray(userParams)) {
+                    $.each(userParams, function(index, key) {
+                        var value = params[key];
+                        if (vm[key]) { // set observable ...
+                            vm[key](value);
+                        } else { // ... or create observable
+                            vm[key] = ko.observable(value);
                         }
-                    }
-                    else {
-                        if (userParams[key]) {
-                            userParams[key](value);
-                            if (vm[key]) {
-                                vm[key](value);
-                            } else {
-                                vm[key] = ko.observable(value);
-                            }
+                    });
+                } else {
+                    $.each(userParams, function(key, defaultValue) {
+                        var value = params[key];
+                        var runtimeValue;
+                        if(value == null) {
+                            runtimeValue = _ko.value(defaultValue);
+                        } else {
+                            runtimeValue = value;
                         }
-                    }
-                });
+                        if(vm[key]) {
+                            vm[key](runtimeValue);
+                        } else {
+                            vm[key] = ko.observable(runtimeValue);
+                        }
+                    });
+                }
             }
             if (this.pageRoute) {
                 var nameParam = this.getValue()['nameParam'];
@@ -454,13 +481,27 @@
         p.hidePage = function (callback) {
             var m = this;
             if ('show' !== m.val('urlToggle')) {
-                m.isVisible(false);
                 m.hideElementWrapper(callback);
                 m.childManager.hideChild();
             } else {
                 if (callback) {
                     callback();
                 }
+            }
+        };
+
+        var applyBindingsToDescendants = function(page) {
+            try {
+                ko.applyBindingsToDescendants(page.childBindingContext, page.element);
+            } catch(e) {
+                var onBindingError = page.val('onBindingError');
+                if(onBindingError) {
+                    onBindingError(page. e);
+                }
+                pager.onBindingError.fire({
+                    page: page,
+                    error: e
+                });
             }
         };
 
@@ -511,7 +552,7 @@
                 var context = value['with'] || m.bindingContext['$observableData'] || m.viewModel;
                 m.ctx = _ko.value(context);
                 m.augmentContext();
-                
+
                 if(ko.isObservable(context)) {
                     var dataInContext = ko.observable(m.ctx);
                     m.childBindingContext = m.bindingContext.createChildContext(dataInContext);
@@ -519,7 +560,21 @@
                         $page:this,
                         $observableData: context
                     });
-                    ko.applyBindingsToDescendants(m.childBindingContext, m.element);
+                    applyBindingsToDescendants(m);
+                    /*
+                    try {
+                        ko.applyBindingsToDescendants(m.childBindingContext, m.element);
+                    } catch(e) {
+                        var onBindingError = m.val('onBindingError');
+                        if(onBindingError) {
+                            onBindingError(m. e);
+                        }
+                        pager.onBindingError.fire({
+                            page: m,
+                            error: e
+                        });
+                    }
+                    */
 
                     context.subscribe(function() {
                         dataInContext(_ko.value(context));
@@ -530,7 +585,7 @@
                         $page:this,
                         $observableData: undefined
                     });
-                    ko.applyBindingsToDescendants(m.childBindingContext, m.element);
+                    applyBindingsToDescendants(m);
                 }
             }
 
@@ -577,6 +632,9 @@
                         if (!m.ctx[key]) {
                             if (ko.isObservable(value)) {
                                 m.ctx[key] = value;
+                            } else if(value === null) {
+                                params[key] = ko.observable(null);
+                                m.ctx[key] = ko.observable(null);
                             } else {
                                 m.ctx[key] = ko.observable(value);
                             }
@@ -613,18 +671,7 @@
          * @return {pager.Page}
          */
         p.getParentPage = function () {
-            // search this context/$data until either root is accessed or no page is found
-            var bindingContext = this.bindingContext;
-            while (bindingContext) {
-                // get first parent page, but exclude pages with urlToggle: none
-                if (bindingContext.$page && bindingContext.$page.val('urlToggle') !== 'none') {
-                    return bindingContext.$page;
-                } else if (bindingContext.$data && bindingContext.$data.$__page__) {
-                    return bindingContext.$data.$__page__;
-                }
-                bindingContext = bindingContext.$parentContext;
-            }
-            return null;
+            return pager.getParentPage(this.bindingContext);
         };
 
         /**
@@ -673,7 +720,7 @@
                     me.childBindingContext = childBindingContext;
                     me.augmentContext();
                     ko.utils.extend(childBindingContext, {$page:me});
-                    ko.applyBindingsToDescendants(childBindingContext, me.element);
+                    applyBindingsToDescendants(me);
                 }, me);
             }
         };
@@ -727,7 +774,7 @@
                     // TODO: call abstraction that either applies binding or loads view-model
 
                     if (!me.val('withOnShow')) {
-                        ko.applyBindingsToDescendants(me.childBindingContext, me.element);
+                        applyBindingsToDescendants(me);
                     } else if (me.val('withOnShow')) {
                         me.loadWithOnShow();
                     }
@@ -875,6 +922,7 @@
          * @param {Function} callback
          */
         p.hideElementWrapper = function (callback) {
+            this.isVisible(false);
             if (this.val('beforeHide')) {
                 this.val('beforeHide')(this);
             }
@@ -990,18 +1038,20 @@
             this.element = element;
             this.bindingContext = bindingContext;
             this.path = ko.observable();
-            this.val = ko.observable(valueAccessor);
+            this.pageOrRelativePath = ko.observable(valueAccessor);
         };
 
         var hp = pager.Href.prototype;
 
-        hp.getParentPage = p.getParentPage;
+        hp.getParentPage = function() {
+            return pager.getParentPage(this.bindingContext);
+        };
 
         hp.init = function () {
             var page = this.getParentPage();
 
             this.path = ko.computed(function () {
-                var value = _ko.value(this.val()());
+                var value = _ko.value(this.pageOrRelativePath()());
                 if (typeof(value) === 'string') {
                     var parentsToTrim = 0;
                     while (value.substring(0, 3) === '../') {
@@ -1034,7 +1084,7 @@
         };
 
         hp.update = function (valueAccessor) {
-            this.val(valueAccessor);
+            this.pageOrRelativePath(valueAccessor);
         };
 
         pager.Href5 = function (element, valueAccessor, allBindingsAccessor, viewModel, bindingContext) {
@@ -1155,6 +1205,9 @@
         pager.fx.slide = pager.fx.jQuerySync($.fn.slideDown, $.fn.slideUp);
         pager.fx.fade = pager.fx.jQuerySync($.fn.fadeIn, $.fn.fadeOut);
 
+        var parseHash = function(hash) {
+            return hash.replace(/\+/g, ' ').split('/').map(decodeURIComponent);
+        };
 
         pager.startHistoryJs = function (id) {
             if (id) {
@@ -1166,7 +1219,7 @@
                     hash = hash.slice(pager.Href.hash.length);
                 }
                 // split on '/'
-                var hashRoute = decodeURIComponent(hash).split('/');
+                var hashRoute = parseHash(hash);
                 pager.showChild(hashRoute);
             };
 
@@ -1194,7 +1247,7 @@
                     hash = hash.slice(pager.Href.hash.length);
                 }
                 // split on '/'
-                var hashRoute = decodeURIComponent(hash.replace(/\+/g, ' ')).split('/');
+                var hashRoute = parseHash(hash); // decodeURIComponent(hash.replace(/\+/g, ' ')).split('/');
                 pager.showChild(hashRoute);
             });
             $(window).hashchange();
@@ -1219,7 +1272,7 @@
                     hash = hash.slice(pager.Href.hash.length);
                 }
                 // split on '/'
-                var hashRoute = decodeURIComponent(hash).split('/');
+                var hashRoute = parseHash(hash);
                 pager.showChild(hashRoute);
             };
 

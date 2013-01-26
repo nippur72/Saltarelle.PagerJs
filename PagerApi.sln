@@ -22,7 +22,7 @@ Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "WebsiteTest", "WebsiteTest\
 		Release.AspNetCompiler.ForceOverwrite = "true"
 		Release.AspNetCompiler.FixedNames = "false"
 		Release.AspNetCompiler.Debug = "False"
-		VWDPort = "1072"
+		VWDPort = "16754"
 	EndProjectSection
 	ProjectSection(ProjectDependencies) = postProject
 		{68211525-A382-41EF-B185-705649FE0572} = {68211525-A382-41EF-B185-705649FE0572}
