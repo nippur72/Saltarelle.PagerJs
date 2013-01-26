@@ -83,13 +83,21 @@ namespace TestPagerApi
 
            MyViewModel mod = new MyViewModel();
 
-           Pager.UseHTML5history = true;
-           Pager.Href5History = Window.History;
+           // if using History.js
+           //Pager.UseHTML5history = true;
+           //Pager.UseHistoryJsInHref5();
 
            Pager.ExtendWithPage(mod);                    
 
            Knockout.ApplyBindings(mod);
            
+           // if using History.js
+           //Pager.StartHistoryJs();
+
+           // if using HashChange
+           //Pager.StartHashChange();
+
+           // if using HTML5 native history
            Pager.Start();                     
         }            
     }     

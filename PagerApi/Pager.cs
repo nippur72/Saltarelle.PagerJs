@@ -7,7 +7,7 @@ namespace PagerApi
 {		
     [Imported(IsRealType=true)]
     [IgnoreNamespace]
-	[ScriptName("pager")]
+	 [ScriptName("pager")]
     public static class Pager
     {
         /// <summary>
@@ -15,6 +15,7 @@ namespace PagerApi
         /// </summary>
         public static bool UseHTML5history;
 
+        /*
         /// <summary>
         /// tell page-href5 to use History.js instead of history
         /// </summary>
@@ -29,6 +30,15 @@ namespace PagerApi
             set 
             {
             }            
+        }
+        */
+
+        /// <summary>
+        /// tell page-href5 to use History.js instead of history
+        /// </summary>
+        [InlineCode("pager.Href5.history = History;")]
+        public static void UseHistoryJsInHref5()
+        {
         }
 
         public static void ExtendWithPage(object ViewModel) { }

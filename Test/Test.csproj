@@ -5,7 +5,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{7B1DB5AC-623A-45F4-B43E-60E2CA16CD24}</ProjectGuid>
-    <OutputType>Library</OutputType>
+    <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>TestPagerApi</RootNamespace>
     <AssemblyName>TestPagerApi</AssemblyName>
@@ -63,18 +63,16 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib">
-      <HintPath>$(SolutionDir)packages\Saltarelle.Runtime.1.6.3\tools\Assemblies\mscorlib.dll</HintPath>
+      <HintPath>$(SolutionDir)packages\Saltarelle.Runtime.1.7.1\tools\Assemblies\mscorlib.dll</HintPath>
     </Reference>
     <Reference Include="Script.jQuery">
-      <HintPath>..\packages\Saltarelle.jQuery.1.6.3\lib\Script.jQuery.dll</HintPath>
+      <HintPath>..\packages\Saltarelle.jQuery.1.7.1\lib\Script.jQuery.dll</HintPath>
     </Reference>
-    <Reference Include="Script.Knockout, Version=1.6.0.0, Culture=neutral, PublicKeyToken=8fc0e3af5abcb6c4, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\packages\Saltarelle.Knockout.1.6.3\lib\Script.Knockout.dll</HintPath>
+    <Reference Include="Script.Knockout">
+      <HintPath>..\packages\Saltarelle.Knockout.1.7.1\lib\Script.Knockout.dll</HintPath>
     </Reference>
-    <Reference Include="Script.Web, Version=1.6.0.0, Culture=neutral, PublicKeyToken=8fc0e3af5abcb6c4, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\packages\Saltarelle.Web.1.6.3\lib\Script.Web.dll</HintPath>
+    <Reference Include="Script.Web">
+      <HintPath>..\packages\Saltarelle.Web.1.7.1\lib\Script.Web.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -95,8 +93,8 @@
       <Name>PagerApi</Name>
     </ProjectReference>
   </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" Condition="!Exists('$(SolutionDir)packages\Saltarelle.Compiler.1.6.3\tools\Saltarelle.Compiler.targets')" />
-  <Import Project="$(SolutionDir)packages\Saltarelle.Compiler.1.6.3\tools\Saltarelle.Compiler.targets" Condition="Exists('$(SolutionDir)packages\Saltarelle.Compiler.1.6.3\tools\Saltarelle.Compiler.targets')" />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" Condition="!Exists('$(SolutionDir)packages\Saltarelle.Compiler.1.7.1\tools\Saltarelle.Compiler.targets')" />
+  <Import Project="$(SolutionDir)packages\Saltarelle.Compiler.1.7.1\tools\Saltarelle.Compiler.targets" Condition="Exists('$(SolutionDir)packages\Saltarelle.Compiler.1.7.1\tools\Saltarelle.Compiler.targets')" />
   <PropertyGroup>
     <PostBuildEvent>copy "$(TargetDir)$(TargetName).js" "$(SolutionDir)\WebsiteTest\Scripts"</PostBuildEvent>
   </PropertyGroup>

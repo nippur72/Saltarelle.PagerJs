@@ -31,13 +31,13 @@ using PagerApi;
 First decide what history engine your are going to use in your web application. PagerJS 
 gives three choices:
 
-* naive history (working only on HTML5 browser)
-* jQuery hasChange history
-* History.js
+* native history (working only on HTML5 browser)
+* [jQuery-HashChange] (https://github.com/cowboy/jquery-hashchange)
+* [History.js] (https://github.com/balupton/History.js/)
 
-if you decide to use History.js you have to reference it in your html file.
+if you decide to use HashChange.js or History.js you have to reference them in your html file.
 
-## Using naive history manager:
+## Using native history manager:
 
 ```C#
 Pager.ExtendWithPage(viewModel);                    
@@ -45,7 +45,7 @@ Knockout.ApplyBindings(viewModel);
 Pager.Start();              
 ```
 
-## Using jquery haschange:
+## Using jquery-hashchange:
 
 ```C#
 Pager.UseHTML5history = true;
@@ -54,11 +54,11 @@ Knockout.ApplyBindings(viewModel);
 Pager.StartHashChange();  
 ```
 
-## Using History.JS:
+## Using history.js:
 
 ```C#
 Pager.UseHTML5history = true;
-pager.Href5History = History;
+pager.UseHistoryInHref5();
 Pager.ExtendWithPage(viewModel);                    
 Knockout.ApplyBindings(viewModel);
 Pager.StartHistoryJS();  
