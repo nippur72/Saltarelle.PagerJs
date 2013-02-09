@@ -55,29 +55,32 @@ namespace TestPagerApi
     [IgnoreNamespace]
     public class PageAccordionItemBindingHandler : PageBindingHandler
     {
-        public override void Init(Element element, Func<object> valueAccessor, Func<JsDictionary> allBindingsAccessor, object viewModel, object bindingContext)
+        public override object Init(Element element, Func<object> valueAccessor, Func<JsDictionary> allBindingsAccessor, object viewModel, object bindingContext)
         {
            var pageAccordionItem = new PageAccordionItem(element, valueAccessor, allBindingsAccessor, viewModel, bindingContext);
-           pageAccordionItem.Init();
+           return pageAccordionItem.Init();           
         }
         
+        /*
         public override void Update(Element element, Func<object> valueAccessor, Func<JsDictionary> allBindingsAccessor, object viewModel, object bindingContext)
         {
-        } 
+           
+        }
+        */ 
     }                
 
     public class MyViewModel
     {
-    }    
-    
+    }            
+
     public class Program
     {
         static void Main()
         {            
-           Window.AddEventListener("load", OnLoaded);                      
+           jQuery.OnDocumentReady(()=>DocumentReady());                      
         }
                
-        static void OnLoaded(ElementEvent e)
+        static void DocumentReady()
         {                                                                                        
            Knockout.BindingHandlers["page-accordion-item"] = (dynamic) new PageAccordionItemBindingHandler();                                          
 

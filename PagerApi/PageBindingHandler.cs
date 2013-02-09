@@ -23,7 +23,9 @@ namespace PagerApi
         /// <param name="allBindingsAccessor">A function which returns all the model properties bound to this element.</param>
         /// <param name="viewModel">The view model instance involved in this binding.</param>
         /// <param name="bindingContext">The binding context involved in this binding.</param>
-        public virtual void Init(Element element, Func<object> valueAccessor, Func<JsDictionary> allBindingsAccessor, object viewModel, object bindingContext) {
+        public virtual object Init(Element element, Func<object> valueAccessor, Func<JsDictionary> allBindingsAccessor, object viewModel, object bindingContext) 
+        {
+           return null;
         }
 
         /// <summary>
@@ -34,7 +36,9 @@ namespace PagerApi
         /// <param name="allBindingsAccessor">A function which returns all the model properties bound to this element.</param>
         /// <param name="viewModel">The view model instance involved in this binding.</param>
         /// <param name="bindingContext">The binding context involved in this binding.</param>
-        public virtual void Update(Element element, Func<object> valueAccessor, Func<JsDictionary> allBindingsAccessor, object viewModel, object bindingContext) {
+        public virtual object Update(Element element, Func<object> valueAccessor, Func<JsDictionary> allBindingsAccessor, object viewModel, object bindingContext) 
+        {
+           return null;
         }
     }
 

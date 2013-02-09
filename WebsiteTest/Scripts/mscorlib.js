@@ -2,402 +2,475 @@
 //! More information at http://projects.nikhilk.net/ScriptSharp
 //!
 if (typeof(global) === "undefined")
-  global = window;
+	global = window;
 
 var ss = {};
 
 ss.isUndefined = function (o) {
-  return (o === undefined);
+	return (o === undefined);
 };
 
 ss.isNull = function (o) {
-  return (o === null);
+	return (o === null);
 };
 
 ss.isNullOrUndefined = function (o) {
-  return (o === null) || (o === undefined);
+	return (o === null) || (o === undefined);
 };
 
 ss.isValue = function (o) {
-  return (o !== null) && (o !== undefined);
+	return (o !== null) && (o !== undefined);
 };
 
 ss.referenceEquals = function (a, b) {
-  return ss.isValue(a) ? a === b : !ss.isValue(b);
+	return ss.isValue(a) ? a === b : !ss.isValue(b);
 };
 
 ss.mkdict = function (a) {
-  a = (arguments.length != 1 ? arguments : arguments[0]);
-  var r = {};
-  for (var i = 0; i < a.length; i += 2) {
-    r[a[i]] = a[i + 1];
-  }
-  return r;
+	a = (arguments.length != 1 ? arguments : arguments[0]);
+	var r = {};
+	for (var i = 0; i < a.length; i += 2) {
+		r[a[i]] = a[i + 1];
+	}
+	return r;
 };
 
 ss.coalesce = function (a, b) {
-  return ss.isValue(a) ? a : b;
+	return ss.isValue(a) ? a : b;
+};
+
+ss.isDate = function(obj) {
+	return Object.prototype.toString.call(obj) === '[object Date]';
+};
+
+ss.isArray = function(obj) {
+	return Object.prototype.toString.call(obj) === '[object Array]';
+};
+
+ss.getHashCode = function(obj) {
+	if (!ss.isValue(obj))
+		throw 'Cannot get hash code of null';
+	else if (typeof(obj.getHashCode) === 'function')
+		return obj.getHashCode();
+	else if (typeof(obj) === 'boolean') {
+		return obj ? 1 : 0;
+	}
+	else if (typeof(obj) === 'number') {
+		var s = obj.toExponential();
+		s = s.substr(0, s.indexOf('e'));
+		return parseInt(s.replace('.', ''), 10) & 0xffffffff;
+	}
+	else if (typeof(obj) === 'string') {
+		var res = 0;
+		for (var i = 0; i < obj.length; i++)
+			res = (res * 31 + obj.charCodeAt(i)) & 0xffffffff;
+		return res;
+	}
+	else if (ss.isDate(obj)) {
+		return obj.valueOf() & 0xffffffff;
+	}
+	else {
+		return ss.defaultHashCode(obj);
+	}
+};
+
+ss.defaultHashCode = function(obj) {
+	return obj.$__hashCode__ || (obj.$__hashCode__ = (Math.random() * 0xffffffff) | 0);
+};
+
+ss.equals = function(a, b) {
+	if (!ss.isValue(a))
+		throw 'Object is null';
+	else if (typeof(a.equals) === 'function')
+		return a.equals(b);
+	if (ss.isDate(a) && ss.isDate(b))
+		return a.valueOf() === b.valueOf();
+	else if (typeof(a) === 'function' && typeof(b) === 'function')
+		return ss.delegateEquals(a, b);
+	else if (ss.isNullOrUndefined(a) && ss.isNullOrUndefined(b))
+		return true;
+	else
+		return a === b;
+};
+
+ss.compare = function(a, b) {
+	if (!ss.isValue(a))
+		throw 'Object is null';
+	else if (typeof(a) === 'number' || typeof(a) === 'string' || typeof(a) === 'boolean')
+		return a < b ? -1 : (a > b ? 1 : 0);
+	else if (ss.isDate(a))
+		return ss.compare(a.valueOf(), b.valueOf());
+	else
+		return a.compareTo(b);
+};
+
+ss.equalsT = function(a, b) {
+	if (!ss.isValue(a))
+		throw 'Object is null';
+	else if (typeof(a) === 'number' || typeof(a) === 'string' || typeof(a) === 'boolean')
+		return a === b;
+	else if (ss.isDate(a))
+		return a.valueOf() === b.valueOf();
+	else
+		return a.equalsT(b);
+};
+
+ss.staticEquals = function(a, b) {
+	if (!ss.isValue(a))
+		return !ss.isValue(b);
+	else
+		return ss.isValue(b) ? ss.equals(a, b) : false;
 };
 
 if (typeof(window) == 'object') {
-  // Browser-specific stuff that could go into the Web assembly, but that assembly does not have an associated JS file.
-  if (!window.Element) {
-    // IE does not have an Element constructor. This implementation should make casting to elements work.
-    window.Element = function() {
-    };
-    window.Element.isInstanceOfType = function(instance) { return instance && typeof instance.constructor === 'undefined' && typeof instance.tagName === 'string'; };
-  }
-  window.Element.__typeName = 'Element';
-  window.Element.__baseType = Object;
+	// Browser-specific stuff that could go into the Web assembly, but that assembly does not have an associated JS file.
+	if (!window.Element) {
+		// IE does not have an Element constructor. This implementation should make casting to elements work.
+		window.Element = function() {};
+		window.Element.isInstanceOfType = function(instance) { return instance && typeof instance.constructor === 'undefined' && typeof instance.tagName === 'string'; };
+	}
+	window.Element.__typeName = 'Element';
+	window.Element.__baseType = Object;
+	
+	if (!window.XMLHttpRequest) {
+		window.XMLHttpRequest = function() {
+			var progIDs = [ 'Msxml2.XMLHTTP', 'Microsoft.XMLHTTP' ];
+	
+			for (var i = 0; i < progIDs.length; i++) {
+				try {
+					var xmlHttp = new ActiveXObject(progIDs[i]);
+					return xmlHttp;
+				}
+				catch (ex) {
+				}
+			}
+	
+			return null;
+		};
+	}
 
-  if (!window.XMLHttpRequest) {
-    window.XMLHttpRequest = function() {
-      var progIDs = [ 'Msxml2.XMLHTTP', 'Microsoft.XMLHTTP' ];
-  
-      for (var i = 0; i < progIDs.length; i++) {
-        try {
-          var xmlHttp = new ActiveXObject(progIDs[i]);
-          return xmlHttp;
-        }
-        catch (ex) {
-        }
-      }
-  
-      return null;
-    };
-  }
+	ss.parseXml = function(markup) {
+		try {
+			if (DOMParser) {
+				var domParser = new DOMParser();
+				return domParser.parseFromString(markup, 'text/xml');
+			}
+			else {
+				var progIDs = [ 'Msxml2.DOMDocument.3.0', 'Msxml2.DOMDocument' ];
 
-  ss.parseXml = function(markup) {
-    try {
-      if (DOMParser) {
-        var domParser = new DOMParser();
-        return domParser.parseFromString(markup, 'text/xml');
-      }
-      else {
-        var progIDs = [ 'Msxml2.DOMDocument.3.0', 'Msxml2.DOMDocument' ];
-          
-        for (var i = 0; i < progIDs.length; i++) {
-          var xmlDOM = new ActiveXObject(progIDs[i]);
-          xmlDOM.async = false;
-          xmlDOM.loadXML(markup);
-          xmlDOM.setProperty('SelectionLanguage', 'XPath');
-                  
-          return xmlDOM;
-        }
-      }
-    }
-    catch (ex) {
-    }
-  
-    return null;
-  };
+				for (var i = 0; i < progIDs.length; i++) {
+					var xmlDOM = new ActiveXObject(progIDs[i]);
+					xmlDOM.async = false;
+					xmlDOM.loadXML(markup);
+					xmlDOM.setProperty('SelectionLanguage', 'XPath');
+					return xmlDOM;
+				}
+			}
+		}
+		catch (ex) {
+		}
+
+		return null;
+	};
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Type System Implementation
 
-global.Type = Function;
+ss.registerType = function Type$registerType(root, typeName, type) {
+	var ns = root;
+	var nameParts = typeName.split('.');
 
-Type.registerType = function Type$registerType(root, typeName, type) {
-    var ns = root;
-    var nameParts = typeName.split('.');
-
-    for (var i = 0; i < nameParts.length - 1; i++) {
-        var part = nameParts[i];
-        var nso = ns[part];
-        if (!nso) {
-            ns[part] = nso = {};
-        }
-        ns = nso;
-    }
-    ns[nameParts[nameParts.length - 1]] = type;
+	for (var i = 0; i < nameParts.length - 1; i++) {
+		var part = nameParts[i];
+		var nso = ns[part];
+		if (!nso) {
+			ns[part] = nso = {};
+		}
+		ns = nso;
+	}
+	ns[nameParts[nameParts.length - 1]] = type;
 };
 
-Type.__genericCache = {};
+ss.__genericCache = {};
 
-Type._makeGenericTypeName = function Type$_makeGenericTypeName(genericType, typeArguments) {
+ss._makeGenericTypeName = function ss$_makeGenericTypeName(genericType, typeArguments) {
 	var result = genericType.__typeName;
 	for (var i = 0; i < typeArguments.length; i++)
-		result += (i === 0 ? '[' : ',') + typeArguments[i].__typeName;
+		result += (i === 0 ? '[' : ',') + ss.getTypeFullName(typeArguments[i]);
 	result += ']';
 	return result;
 };
 
-Type.makeGenericType = function Type$makeGenericType(genericType, typeArguments) {
-	var name = Type._makeGenericTypeName(genericType, typeArguments);
-	return Type.__genericCache[name] || genericType.apply(null, typeArguments);
+ss.makeGenericType = function ss$makeGenericType(genericType, typeArguments) {
+	var name = ss._makeGenericTypeName(genericType, typeArguments);
+	return ss.__genericCache[name] || genericType.apply(null, typeArguments);
 };
 
-Type.prototype.registerGenericClassInstance = function Type$registerGenericInstance(instance, genericType, typeArguments, baseType, interfaceTypes) {
-	var name = Type._makeGenericTypeName(genericType, typeArguments);
-	Type.__genericCache[name] = instance;
+ss.registerGenericClassInstance = function ss$registerGenericInstance(instance, genericType, typeArguments, baseType, interfaceTypes) {
+	var name = ss._makeGenericTypeName(genericType, typeArguments);
+	ss.__genericCache[name] = instance;
 	instance.__genericTypeDefinition = genericType;
 	instance.__typeArguments = typeArguments;
-	Type.registerClass(null, name, instance, baseType(), interfaceTypes());
+	ss.registerClass(null, name, instance, baseType(), interfaceTypes());
 };
 
-Type.registerGenericInterfaceInstance = function Type$registerGenericInstance(instance, genericType, typeArguments, baseInterfaces) {
-	var name = Type._makeGenericTypeName(genericType, typeArguments);
-	Type.__genericCache[name] = instance;
+ss.registerGenericInterfaceInstance = function ss$registerGenericInstance(instance, genericType, typeArguments, baseInterfaces) {
+	var name = ss._makeGenericTypeName(genericType, typeArguments);
+	ss.__genericCache[name] = instance;
 	instance.__genericTypeDefinition = genericType;
 	instance.__typeArguments = typeArguments;
-	Type.registerInterface(null, name, instance, baseInterfaces());
+	ss.registerInterface(null, name, instance, baseInterfaces());
 };
 
-Type.prototype.get_isGenericTypeDefinition = function Type$get_isGenericTypeDefinition() {
-	return this.__isGenericTypeDefinition || false;
+ss.isGenericTypeDefinition = function ss$isGenericTypeDefinition(type) {
+	return type.__isGenericTypeDefinition || false;
 };
 
-Type.prototype.getGenericTypeDefinition = function Type$getGenericTypeDefinition() {
-	return this.__genericTypeDefinition || null;
+ss.getGenericTypeDefinition = function ss$getGenericTypeDefinition(type) {
+	return type.__genericTypeDefinition || null;
 };
 
-Type.prototype.get_genericParameterCount = function Type$get_genericParameterCount() {
-	return this.__typeArgumentCount || 0;
+ss.getGenericParameterCount = function ss$getGenericParameterCount(type) {
+	return type.__typeArgumentCount || 0;
 };
 
-Type.prototype.getGenericArguments = function Type$getGenericArguments() {
-    return this.__typeArguments || null;
+ss.getGenericArguments = function ss$getGenericArguments(type) {
+	return type.__typeArguments || null;
 };
 
-Type.registerClass = function Type$registerClass(root, name, ctor, baseType, interfaceType) {
+ss.registerClass = function ss$registerClass(root, name, ctor, baseType, interfaceType) {
 	if (root)
-		Type.registerType(root, name, ctor);
+		ss.registerType(root, name, ctor);
 
-    ctor.prototype.constructor = ctor;
-    ctor.__typeName = name;
-    ctor.__class = true;
-    ctor.__baseType = baseType || Object;
-    if (baseType) {
-        ctor.setupBase(baseType);
-    }
+	ctor.prototype.constructor = ctor;
+	ctor.__typeName = name;
+	ctor.__class = true;
+	ctor.__baseType = baseType || Object;
+	if (baseType) {
+		ss.setupBase(ctor);
+	}
 
 	if (interfaceType instanceof Array) {
 		ctor.__interfaces = interfaceType;
 	}
 	else if (interfaceType) {
-        ctor.__interfaces = [];
-        for (var i = 4; i < arguments.length; i++) {
-            interfaceType = arguments[i];
-            ctor.__interfaces.add(interfaceType);
-        }
-    }
-};
-
-Type.registerGenericClass = function Type$registerGenericClass(root, name, ctor, typeArgumentCount) {
-	if (root)
-		Type.registerType(root, name, ctor);
-
-    ctor.prototype.constructor = ctor;
-    ctor.__typeName = name;
-    ctor.__class = true;
-	ctor.__typeArgumentCount = typeArgumentCount;
-	ctor.__isGenericTypeDefinition = true;
-    ctor.__baseType = Object;
-};
-
-Type.registerInterface = function Type$createInterface(root, name, ctor, baseInterface) {
-	if (root)
-		Type.registerType(root, name, ctor);
-
-    ctor.__typeName = name;
-    ctor.__interface = true;
-	if (baseInterface instanceof Array) {
-		ctor.__interfaces = baseInterface;
-	}
-	else if (baseInterface) {
-        ctor.__interfaces = [];
-        for (var i = 3; i < arguments.length; i++) {
-            ctor.__interfaces.add(arguments[i]);
-        }
-    }
-};
-
-Type.registerGenericInterface = function Type$registerGenericClass(root, name, ctor, typeArgumentCount) {
-	if (root)
-		Type.registerType(root, name, ctor);
-
-    ctor.prototype.constructor = ctor;
-    ctor.__typeName = name;
-    ctor.__interface = true;;
-	ctor.__typeArgumentCount = typeArgumentCount;
-	ctor.__isGenericTypeDefinition = true;
-};
-
-Type.prototype.registerEnum = function Type$createEnum(root, name, ctor, flags) {
-	if (root)
-		Type.registerType(root, name, ctor);
-
-    for (var field in ctor.prototype) {
-        ctor[field] = ctor.prototype[field];
-    }
-
-    ctor.__typeName = name;
-    ctor.__enum = true;
-    if (flags) {
-        ctor.__flags = true;
-    }
-    ctor.getDefaultValue = ctor.createInstance = function() { return 0; };
-    ctor.isInstanceOfType = function(instance) { return typeof(instance) == 'number'; };
-};
-
-Type.prototype.setupBase = function Type$setupBase() {
-	var baseType = this.__baseType;
-
-	for (var memberName in baseType.prototype) {
-		var memberValue = baseType.prototype[memberName];
-		if (!this.prototype[memberName]) {
-			this.prototype[memberName] = memberValue;
+		ctor.__interfaces = [];
+		for (var i = 4; i < arguments.length; i++) {
+			interfaceType = arguments[i];
+			ctor.__interfaces.push(interfaceType);
 		}
 	}
 };
 
-if (!Type.prototype.resolveInheritance) {
-    // This function is not used by Script#; Visual Studio relies on it
-    // for JavaScript IntelliSense support of derived types.
-    Type.prototype.resolveInheritance = Type.prototype.setupBase;
+ss.registerGenericClass = function ss$registerGenericClass(root, name, ctor, typeArgumentCount) {
+	if (root)
+		ss.registerType(root, name, ctor);
+
+	ctor.prototype.constructor = ctor;
+	ctor.__typeName = name;
+	ctor.__class = true;
+	ctor.__typeArgumentCount = typeArgumentCount;
+	ctor.__isGenericTypeDefinition = true;
+	ctor.__baseType = Object;
 };
 
-Type.prototype.get_baseType = function Type$get_baseType() {
-    return this.__baseType || null;
+ss.registerInterface = function ss$createInterface(root, name, ctor, baseInterface) {
+	if (root)
+		ss.registerType(root, name, ctor);
+
+	ctor.__typeName = name;
+	ctor.__interface = true;
+	if (baseInterface instanceof Array) {
+		ctor.__interfaces = baseInterface;
+	}
+	else if (baseInterface) {
+		ctor.__interfaces = [];
+		for (var i = 3; i < arguments.length; i++) {
+			ctor.__interfaces.push(arguments[i]);
+		}
+	}
 };
 
-Type.prototype.get_fullName = function Type$get_fullName() {
-    return this.__typeName;
+ss.registerGenericInterface = function ss$registerGenericClass(root, name, ctor, typeArgumentCount) {
+	if (root)
+		ss.registerType(root, name, ctor);
+
+	ctor.prototype.constructor = ctor;
+	ctor.__typeName = name;
+	ctor.__interface = true;;
+	ctor.__typeArgumentCount = typeArgumentCount;
+	ctor.__isGenericTypeDefinition = true;
 };
 
-Type.prototype.get_name = function Type$get_name() {
-    var fullName = this.__typeName;
-    var nsIndex = fullName.lastIndexOf('.');
-    if (nsIndex > 0) {
-        return fullName.substr(nsIndex + 1);
-    }
-    return fullName;
+ss.registerEnum = function ss$registerEnum(root, name, ctor, flags) {
+	if (root)
+		ss.registerType(root, name, ctor);
+
+	for (var field in ctor.prototype) {
+		ctor[field] = ctor.prototype[field];
+	}
+
+	ctor.__typeName = name;
+	ctor.__enum = true;
+	if (flags) {
+		ctor.__flags = true;
+	}
+	ctor.getDefaultValue = ctor.createInstance = function() { return 0; };
+	ctor.isInstanceOfType = function(instance) { return typeof(instance) == 'number'; };
 };
 
-Type.prototype.getInterfaces = function Type$getInterfaces() {
-    return this.__interfaces;
+ss.setupBase = function Type$setupBase(type) {
+	var baseType = type.__baseType;
+
+	for (var memberName in baseType.prototype) {
+		var memberValue = baseType.prototype[memberName];
+		if (!type.prototype[memberName]) {
+			type.prototype[memberName] = memberValue;
+		}
+	}
 };
 
-Type.prototype.isInstanceOfType = function Type$isInstanceOfType(instance) {
-    if (ss.isNullOrUndefined(instance)) {
-        return false;
-    }
-    if ((this == Object) || (instance instanceof this)) {
-        return true;
-    }
-
-    var type = Type.getInstanceType(instance);
-    return this.isAssignableFrom(type);
+ss.getBaseType = function ss$getBaseType(type) {
+	return type.__baseType || (type === Object ? null : Object);
 };
 
-Type.isInstanceOfType = function Type$isInstanceOfTypeStatic(instance, type) {
-    return instance instanceof type || (type !== Function && type.isInstanceOfType && type.isInstanceOfType(instance));
+ss.getTypeFullName = function ss$getTypeFullName(type) {
+	if (type === Array) return 'Array';
+	if (type === Boolean) return 'Boolean';
+	if (type === Date) return 'Date';
+	if (type === Error) return 'Error';
+	if (type === Function) return 'Function';
+	if (type === Number) return 'Number';
+	if (type === Object) return 'Object';
+	if (type === RegExp) return 'RegExp';
+	if (type === String) return 'String';
+	return type.__typeName || 'Object';
 };
 
-Type.prototype.isAssignableFrom = function Type$isAssignableFrom(type) {
-    if ((this == Object) || (this == type)) {
-        return true;
-    }
-    if (this.__class) {
-        var baseType = type.__baseType;
-        while (baseType) {
-            if (this == baseType) {
-                return true;
-            }
-            baseType = baseType.__baseType;
-        }
-    }
-    else if (this.__interface) {
-        var interfaces = type.__interfaces;
-        if (interfaces && interfaces.contains(this)) {
-            return true;
-        }
-
-        var baseType = type.__baseType;
-        while (baseType) {
-            interfaces = baseType.__interfaces;
-            if (interfaces && interfaces.contains(this)) {
-                return true;
-            }
-            baseType = baseType.__baseType;
-        }
-    }
-    return false;
+ss.getTypeName = function ss$getTypeName(type) {
+	var fullName = ss.getTypeFullName(type);
+	var bIndex = fullName.indexOf('[');
+	var nsIndex = fullName.lastIndexOf('.', bIndex >= 0 ? bIndex : fullName.length);
+	return nsIndex > 0 ? fullName.substr(nsIndex + 1) : fullName;
 };
 
-Type.hasProperty = function Type$hasProperty(instance, name) {
+ss.getInterfaces = function ss$getInterfaces(type) {
+	if (type === Array)
+		return [ ss_IEnumerable, ss_ICollection, ss_IList ];
+	else if (type === Boolean || type === Date || type === Number || type === String)
+		return [ ss_IEquatable, ss_IComparable ];
+	else
+		return type.__interfaces || [];
+};
+
+ss.isInstanceOfType = function ss$isInstanceOfType(instance, type) {
+	if (ss.isNullOrUndefined(instance))
+		return false;
+
+	if (typeof(type.isInstanceOfType) === 'function')
+		return type.isInstanceOfType(instance);
+
+	if ((type == Object) || (instance instanceof type)) {
+		return true;
+	}
+
+	return ss.isAssignableFrom(type, ss.getInstanceType(instance));
+};
+
+ss.isAssignableFrom = function ss$isAssignableFrom(target, type) {
+	if ((target == Object) || (target == type)) {
+		return true;
+	}
+	if (target.__class) {
+		var baseType = type.__baseType;
+		while (baseType) {
+			if (target == baseType) {
+				return true;
+			}
+			baseType = baseType.__baseType;
+		}
+	}
+	else if (target.__interface) {
+		var interfaces = ss.getInterfaces(type);
+		if (interfaces && ss.contains(interfaces, target)) {
+			return true;
+		}
+
+		var baseType = ss.getBaseType(type);
+		while (baseType) {
+			interfaces = ss.getInterfaces(baseType);
+			if (interfaces && ss.contains(interfaces, target)) {
+				return true;
+			}
+			baseType = ss.getBaseType(baseType);
+		}
+	}
+	return false;
+};
+
+ss.hasProperty = function ss$hasProperty(instance, name) {
 	return typeof(instance['get_' + name]) === 'function' || typeof(instance['set_' + name]) === 'function';
 };
 
-Type.prototype.get_isClass = function Type$get_isClass() {
-    return (this.__class == true);
+ss.isClass = function Type$isClass(type) {
+	return (type.__class == true || type === Array || type === Function || type === RegExp || type === String || type === Error || type === Object);
 };
 
-Type.prototype.get_isEnum = function Type$get_isEnum() {
-    return (this.__enum == true);
+ss.isEnum = function Type$isEnum(type) {
+	return (type.__enum == true);
 };
 
-Type.prototype.get_isFlags = function Type$get_isFlags() {
-    return ((this.__enum == true) && (this.__flags == true));
+ss.isFlags = function Type$isFlags(type) {
+	return ((type.__enum == true) && (type.__flags == true));
 };
 
-Type.prototype.get_isInterface = function Type$get_isInterface() {
-    return (this.__interface == true);
+ss.isInterface = function Type$isInterface(type) {
+	return (type.__interface == true);
 };
 
-Type.canCast = function Type$canCast(instance, type) {
-    return Type.isInstanceOfType(instance, type);
+ss.safeCast = function ss$safeCast(instance, type) {
+	return ss.isInstanceOfType(instance, type) ? instance : null;
 };
 
-Type.safeCast = function Type$safeCast(instance, type) {
-    if (Type.isInstanceOfType(instance, type)) {
-        return instance;
-    }
-    return null;
-};
-
-Type.cast = function Type$cast(instance, type) {
+ss.cast = function ss$cast(instance, type) {
 	if (instance === null)
 		return null;
-    else if (typeof(instance) === "undefined" || Type.isInstanceOfType(instance, type)) {
-        return instance;
-    }
-    throw 'Cannot cast object to type ' + type.__typeName;
+	else if (typeof(instance) === "undefined" || ss.isInstanceOfType(instance, type)) {
+		return instance;
+	}
+	throw 'Cannot cast object to type ' + ss.getTypeFullName(type);
 };
 
-Type.getInstanceType = function Type$getInstanceType(instance) {
+ss.getInstanceType = function ss$getInstanceType(instance) {
 	if (instance === null)
 		throw 'Cannot get type of null';
 	if (typeof(instance) === "undefined")
 		throw 'Cannot get type of undefined';
 
-    var ctor = null;
+	var ctor = null;
 
-    // NOTE: We have to catch exceptions because the constructor
-    //       cannot be looked up on native COM objects
-    try {
-        ctor = instance.constructor;
-    }
-    catch (ex) {
-    }
-    if (!ctor || !ctor.__typeName) {
-        ctor = Object;
-    }
-    return ctor;
+	// NOTE: We have to catch exceptions because the constructor
+	//       cannot be looked up on native COM objects
+	try {
+		ctor = instance.constructor;
+	}
+	catch (ex) {
+	}
+	return ctor || Object;
 };
 
-Type.getType = function Type$getType(typeName) {
-    if (!typeName) {
-        return null;
-    }
+ss.getType = function ss$getType(typeName) {
+	if (!typeName) {
+		return null;
+	}
 
-    if (!Type.__typeCache) {
-        Type.__typeCache = {};
-    }
+	if (!ss.__typeCache) {
+		ss.__typeCache = {};
+	}
 
-    var type = Type.__typeCache[typeName];
-    if (!type) {
+	var type = ss.__typeCache[typeName];
+	if (!type) {
 		var arr = typeName.split(',');
 		var type = (arr.length > 1 ? require(arr[1].trim) : global);
 
@@ -408,797 +481,693 @@ Type.getType = function Type$getType(typeName) {
 				break;
 		}
 
-        Type.__typeCache[typeName] = type || null;
-    }
-    return type;
+		ss.__typeCache[typeName] = type || null;
+	}
+	return type;
 };
 
-Type.prototype.getDefaultValue = function Type$getDefaultValue() {
+ss.getDefaultValue = function ss$getDefaultValue(type) {
+	if (typeof(type.getDefaultValue) === 'function')
+		return type.getDefaultValue();
+	else if (type === Boolean)
+		return false;
+	else if (type === Date)
+		return new Date(0);
+	else if (type === Number)
+		return 0;
 	return null;
 };
 
-Type.prototype.createInstance = function Type$createInstance() {
-    return new this();
+ss.createInstance = function ss$createInstance(type) {
+	if (typeof(type.createInstance) === 'function')
+		return type.createInstance();
+	else if (type === Boolean)
+		return false;
+	else if (type === Date)
+		return new Date(0);
+	else if (type === Number)
+		return 0;
+	else if (type === String)
+		return '';
+	else
+		return new type();
 };
 
-Type.parse = function Type$parse(typeName) {
-    return Type.getType(typeName);
+ss.applyConstructor = function ss$applyConstructor(constructor, args) {
+    var f = function() {
+        return constructor.apply(this, args);
+    };
+    f.prototype = constructor.prototype;
+    return new f();
 };
+
+///////////////////////////////////////////////////////////////////////////////
+// IComparable
+
+var ss_IComparable = function IComparable$() { };
+ss_IComparable.prototype = {
+	compareTo: null
+};
+
+ss.registerInterface(global, 'ss.IComparable', ss_IComparable);
+
+///////////////////////////////////////////////////////////////////////////////
+// IEquatable
+
+var ss_IEquatable = function IEquatable$() { };
+ss_IEquatable.prototype = {
+	equalsT: null
+};
+
+ss.registerInterface(global, 'ss.IEquatable', ss_IEquatable);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Object Extensions
 
-Object.__typeName = 'Object';
-Object.__baseType = null;
-Object.__class = true;
-
-Object.clearKeys = function Object$clearKeys(d) {
-    for (var n in d) {
+ss.clearKeys = function ss$clearKeys(d) {
+	for (var n in d) {
 		if (d.hasOwnProperty(n))
 			delete d[n];
-    }
+	}
 };
 
-Object.keyExists = function Object$keyExists(d, key) {
-    return d[key] !== undefined;
+ss.keyExists = function ss$keyExists(d, key) {
+	return d[key] !== undefined;
 };
 
 if (!Object.keys) {
-    Object.keys = function Object$keys(d) {
-        var keys = [];
-        for (var n in d) {
+	Object.keys = function Object$keys(d) {
+		var keys = [];
+		for (var n in d) {
 			if (d.hasOwnProperty(n))
-		        keys.push(n);
-        }
-        return keys;
-    };
+				keys.push(n);
+		}
+		return keys;
+	};
 
-    Object.getKeyCount = function Object$getKeyCount(d) {
-        var count = 0;
-        for (var n in d) {
+	ss.getKeyCount = function ss$getKeyCount(d) {
+		var count = 0;
+		for (var n in d) {
 			if (d.hasOwnProperty(n))
-		        count++;
-        }
-        return count;
-    };
+				count++;
+		}
+		return count;
+	};
 }
 else {
-    Object.getKeyCount = function Object$getKeyCount(d) {
-        return Object.keys(d).length;
-    };
+	ss.getKeyCount = function ss$getKeyCount2(d) {
+		return Object.keys(d).length;
+	};
 }
-
-Object.getObjectEnumerator = function Object$getObjectEnumerator(d) {
-	return new ss_ObjectEnumerator(d);
-};
-
-///////////////////////////////////////////////////////////////////////////////
-// Boolean Extensions
-
-Boolean.__typeName = 'Boolean';
-Boolean.__baseType = Object;
-
-Boolean.getDefaultValue = Boolean.createInstance = function Boolean$getDefaultValue() {
-	return false;
-};
-
-Boolean.parse = function Boolean$parse(s) {
-    return (s.toLowerCase() == 'true');
-};
-
-Boolean.prototype.getHashCode = function Boolean$getHashCode() {
-	return this == true ? 1 : 0;
-};
-
-Boolean.prototype.equals = function Boolean$equals(b) {
-	return this == b;
-};
 
 ///////////////////////////////////////////////////////////////////////////////
 // Number Extensions
 
-Number.__typeName = 'Number';
-Number.__baseType = Object;
-
-Number.getDefaultValue = Number.createInstance = function Number$getDefaultValue() {
-	return 0;
+ss.formatNumber = function ss$formatNumber(num, format) {
+	if (ss.isNullOrUndefined(format) || (format.length == 0) || (format == 'i')) {
+		return num.toString();
+	}
+	return ss._netFormatNumber(num, format, false);
 };
 
-Number.prototype.getHashCode = function Number$getHashCode() {
-	var s = this.toExponential();
-	s = s.substr(0, s.indexOf('e'));
-	return parseInt(s.replace('.', ''), 10) & 0xffffffff;
+ss.localeFormatNumber = function ss$localeFormatNumber(num, format) {
+	if (ss.isNullOrUndefined(format) || (format.length == 0) || (format == 'i')) {
+		return num.toLocaleString();
+	}
+	return ss._netFormatNumber(num, format, true);
 };
 
-Number.prototype.equals = function Number$equals(n) {
-	return this == n;	// Note: Loose equality because "this" will be boxed
+ss._commaFormatNumber = function ss$_commaFormat(number, groups, decimal, comma) {
+	var decimalPart = null;
+	var decimalIndex = number.indexOf(decimal);
+	if (decimalIndex > 0) {
+		decimalPart = number.substr(decimalIndex);
+		number = number.substr(0, decimalIndex);
+	}
+
+	var negative = ss.startsWithString(number, '-');
+	if (negative) {
+		number = number.substr(1);
+	}
+
+	var groupIndex = 0;
+	var groupSize = groups[groupIndex];
+	if (number.length < groupSize) {
+		return (negative ? '-' : '') + (decimalPart ? number + decimalPart : number);
+	}
+
+	var index = number.length;
+	var s = '';
+	var done = false;
+	while (!done) {
+		var length = groupSize;
+		var startIndex = index - length;
+		if (startIndex < 0) {
+			groupSize += startIndex;
+			length += startIndex;
+			startIndex = 0;
+			done = true;
+		}
+		if (!length) {
+			break;
+		}
+		
+		var part = number.substr(startIndex, length);
+		if (s.length) {
+			s = part + comma + s;
+		}
+		else {
+			s = part;
+		}
+		index -= length;
+
+		if (groupIndex < groups.length - 1) {
+			groupIndex++;
+			groupSize = groups[groupIndex];
+		}
+	}
+
+	if (negative) {
+		s = '-' + s;
+	}    
+	return decimalPart ? s + decimalPart : s;
 };
 
-Number.parse = function Number$parse(s) {
-    if (!s || !s.length) {
-        return 0;
-    }
-    if ((s.indexOf('.') >= 0) || (s.indexOf('e') >= 0) ||
-        s.endsWith('f') || s.endsWith('F')) {
-        return parseFloat(s);
-    }
-    return parseInt(s, 10);
-};
+ss._netFormatNumber = function ss$_netFormatNumber(num, format, useLocale) {
+	var nf = useLocale ? ss_CultureInfo.CurrentCulture.numberFormat : ss_CultureInfo.InvariantCulture.numberFormat;
 
-Number.prototype.format = function Number$format(format) {
-    if (ss.isNullOrUndefined(format) || (format.length == 0) || (format == 'i')) {
-        return this.toString();
-    }
-    return this._netFormat(format, false);
-};
+	var s = '';    
+	var precision = -1;
+	
+	if (format.length > 1) {
+		precision = parseInt(format.substr(1));
+	}
 
-Number.prototype.localeFormat = function Number$format(format) {
-    if (ss.isNullOrUndefined(format) || (format.length == 0) || (format == 'i')) {
-        return this.toLocaleString();
-    }
-    return this._netFormat(format, true);
-};
+	var fs = format.charAt(0);
+	switch (fs) {
+		case 'd': case 'D':
+			s = parseInt(Math.abs(num)).toString();
+			if (precision != -1) {
+				s = ss.padLeftString(s, precision, 0x30);
+			}
+			if (num < 0) {
+				s = '-' + s;
+			}
+			break;
+		case 'x': case 'X':
+			s = parseInt(Math.abs(num)).toString(16);
+			if (fs == 'X') {
+				s = s.toUpperCase();
+			}
+			if (precision != -1) {
+				s = ss.padLeftString(s, precision, 0x30);
+			}
+			break;
+		case 'e': case 'E':
+			if (precision == -1) {
+				s = num.toExponential();
+			}
+			else {
+				s = num.toExponential(precision);
+			}
+			if (fs == 'E') {
+				s = s.toUpperCase();
+			}
+			break;
+		case 'f': case 'F':
+		case 'n': case 'N':
+			if (precision == -1) {
+				precision = nf.numberDecimalDigits;
+			}
+			s = num.toFixed(precision).toString();
+			if (precision && (nf.numberDecimalSeparator != '.')) {
+				var index = s.indexOf('.');
+				s = s.substr(0, index) + nf.numberDecimalSeparator + s.substr(index + 1);
+			}
+			if ((fs == 'n') || (fs == 'N')) {
+				s = ss._commaFormatNumber(s, nf.numberGroupSizes, nf.numberDecimalSeparator, nf.numberGroupSeparator);
+			}
+			break;
+		case 'c': case 'C':
+			if (precision == -1) {
+				precision = nf.currencyDecimalDigits;
+			}
+			s = Math.abs(num).toFixed(precision).toString();
+			if (precision && (nf.currencyDecimalSeparator != '.')) {
+				var index = s.indexOf('.');
+				s = s.substr(0, index) + nf.currencyDecimalSeparator + s.substr(index + 1);
+			}
+			s = ss._commaFormatnumber(s, nf.currencyGroupSizes, nf.currencyDecimalSeparator, nf.currencyGroupSeparator);
+			if (num < 0) {
+				s = ss.formatString(nf.currencyNegativePattern, s);
+			}
+			else {
+				s = ss.formatString(nf.currencyPositivePattern, s);
+			}
+			break;
+		case 'p': case 'P':
+			if (precision == -1) {
+				precision = nf.percentDecimalDigits;
+			}
+			s = (Math.abs(num) * 100.0).toFixed(precision).toString();
+			if (precision && (nf.percentDecimalSeparator != '.')) {
+				var index = s.indexOf('.');
+				s = s.substr(0, index) + nf.percentDecimalSeparator + s.substr(index + 1);
+			}
+			s = ss._commaFormatNumber(s, nf.percentGroupSizes, nf.percentDecimalSeparator, nf.percentGroupSeparator);
+			if (num < 0) {
+				s = ss.formatString(nf.percentNegativePattern, s);
+			}
+			else {
+				s = ss.formatString(nf.percentPositivePattern, s);
+			}
+			break;
+	}
 
-Number._commaFormat = function Number$_commaFormat(number, groups, decimal, comma) {
-    var decimalPart = null;
-    var decimalIndex = number.indexOf(decimal);
-    if (decimalIndex > 0) {
-        decimalPart = number.substr(decimalIndex);
-        number = number.substr(0, decimalIndex);
-    }
-
-    var negative = number.startsWith('-');
-    if (negative) {
-        number = number.substr(1);
-    }
-
-    var groupIndex = 0;
-    var groupSize = groups[groupIndex];
-    if (number.length < groupSize) {
-        return (negative ? '-' : '') + (decimalPart ? number + decimalPart : number);
-    }
-
-    var index = number.length;
-    var s = '';
-    var done = false;
-    while (!done) {
-        var length = groupSize;
-        var startIndex = index - length;
-        if (startIndex < 0) {
-            groupSize += startIndex;
-            length += startIndex;
-            startIndex = 0;
-            done = true;
-        }
-        if (!length) {
-            break;
-        }
-        
-        var part = number.substr(startIndex, length);
-        if (s.length) {
-            s = part + comma + s;
-        }
-        else {
-            s = part;
-        }
-        index -= length;
-
-        if (groupIndex < groups.length - 1) {
-            groupIndex++;
-            groupSize = groups[groupIndex];
-        }
-    }
-
-    if (negative) {
-        s = '-' + s;
-    }    
-    return decimalPart ? s + decimalPart : s;
-};
-
-Number.prototype._netFormat = function Number$_netFormat(format, useLocale) {
-    var nf = useLocale ? ss_CultureInfo.CurrentCulture.numberFormat : ss_CultureInfo.InvariantCulture.numberFormat;
-
-    var s = '';    
-    var precision = -1;
-    
-    if (format.length > 1) {
-        precision = parseInt(format.substr(1));
-    }
-
-    var fs = format.charAt(0);
-    switch (fs) {
-        case 'd': case 'D':
-            s = parseInt(Math.abs(this)).toString();
-            if (precision != -1) {
-                s = s.padLeft(precision, 0x30);
-            }
-            if (this < 0) {
-                s = '-' + s;
-            }
-            break;
-        case 'x': case 'X':
-            s = parseInt(Math.abs(this)).toString(16);
-            if (fs == 'X') {
-                s = s.toUpperCase();
-            }
-            if (precision != -1) {
-                s = s.padLeft(precision, 0x30);
-            }
-            break;
-        case 'e': case 'E':
-            if (precision == -1) {
-                s = this.toExponential();
-            }
-            else {
-                s = this.toExponential(precision);
-            }
-            if (fs == 'E') {
-                s = s.toUpperCase();
-            }
-            break;
-        case 'f': case 'F':
-        case 'n': case 'N':
-            if (precision == -1) {
-                precision = nf.numberDecimalDigits;
-            }
-            s = this.toFixed(precision).toString();
-            if (precision && (nf.numberDecimalSeparator != '.')) {
-                var index = s.indexOf('.');
-                s = s.substr(0, index) + nf.numberDecimalSeparator + s.substr(index + 1);
-            }
-            if ((fs == 'n') || (fs == 'N')) {
-                s = Number._commaFormat(s, nf.numberGroupSizes, nf.numberDecimalSeparator, nf.numberGroupSeparator);
-            }
-            break;
-        case 'c': case 'C':
-            if (precision == -1) {
-                precision = nf.currencyDecimalDigits;
-            }
-            s = Math.abs(this).toFixed(precision).toString();
-            if (precision && (nf.currencyDecimalSeparator != '.')) {
-                var index = s.indexOf('.');
-                s = s.substr(0, index) + nf.currencyDecimalSeparator + s.substr(index + 1);
-            }
-            s = Number._commaFormat(s, nf.currencyGroupSizes, nf.currencyDecimalSeparator, nf.currencyGroupSeparator);
-            if (this < 0) {
-                s = String.format(nf.currencyNegativePattern, s);
-            }
-            else {
-                s = String.format(nf.currencyPositivePattern, s);
-            }
-            break;
-        case 'p': case 'P':
-            if (precision == -1) {
-                precision = nf.percentDecimalDigits;
-            }
-            s = (Math.abs(this) * 100.0).toFixed(precision).toString();
-            if (precision && (nf.percentDecimalSeparator != '.')) {
-                var index = s.indexOf('.');
-                s = s.substr(0, index) + nf.percentDecimalSeparator + s.substr(index + 1);
-            }
-            s = Number._commaFormat(s, nf.percentGroupSizes, nf.percentDecimalSeparator, nf.percentGroupSeparator);
-            if (this < 0) {
-                s = String.format(nf.percentNegativePattern, s);
-            }
-            else {
-                s = String.format(nf.percentPositivePattern, s);
-            }
-            break;
-    }
-
-    return s;
+	return s;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 // String Extensions
 
-String.__typeName = 'String';
-String.__baseType = Object;
-String.__class = true;
+ss.compareStrings = function ss$compareStrings(s1, s2, ignoreCase) {
+	if (ignoreCase) {
+		if (s1) {
+			s1 = s1.toUpperCase();
+		}
+		if (s2) {
+			s2 = s2.toUpperCase();
+		}
+	}
+	s1 = s1 || '';
+	s2 = s2 || '';
 
-String.empty = '';
-
-String.prototype.getHashCode = function String$getHashCode() {
-	var res = 0;
-	for (var i = 0; i < this.length; i++)
-		res = (res * 31 + this.charCodeAt(i)) & 0xffffffff;
-	return res;
+	if (s1 == s2) {
+		return 0;
+	}
+	if (s1 < s2) {
+		return -1;
+	}
+	return 1;
 };
 
-String.prototype.equals = function String$equals(s) {
-	return this == s;	// Note: Loose equality because "this" will be boxed
+ss.concatStrings = function ss$concatStrings() {
+	return Array.prototype.join.call(arguments, '');
 };
 
-String.compare = function String$compare(s1, s2, ignoreCase) {
-    if (ignoreCase) {
-        if (s1) {
-            s1 = s1.toUpperCase();
-        }
-        if (s2) {
-            s2 = s2.toUpperCase();
-        }
-    }
-    s1 = s1 || '';
-    s2 = s2 || '';
-
-    if (s1 == s2) {
-        return 0;
-    }
-    if (s1 < s2) {
-        return -1;
-    }
-    return 1;
+ss.endsWithString = function ss$endsWithString(s, suffix) {
+	if (!suffix.length) {
+		return true;
+	}
+	if (suffix.length > s.length) {
+		return false;
+	}
+	return (s.substr(s.length - suffix.length) == suffix);
 };
 
-String.prototype.compareTo = function String$compareTo(s, ignoreCase) {
-    return String.compare(this, s, ignoreCase);
+ss._formatString = function ss$_formatString(format, values, useLocale) {
+	if (!ss._formatRE) {
+		ss._formatRE = /(\{[^\}^\{]+\})/g;
+	}
+
+	return format.replace(ss._formatRE,
+						  function(str, m) {
+							  var index = parseInt(m.substr(1));
+							  var value = values[index + 1];
+							  if (ss.isNullOrUndefined(value)) {
+								  return '';
+							  }
+							  if (value.format) {
+								  var formatSpec = null;
+								  var formatIndex = m.indexOf(':');
+								  if (formatIndex > 0) {
+									  formatSpec = m.substring(formatIndex + 1, m.length - 1);
+								  }
+								  return useLocale ? value.localeFormat(formatSpec) : value.format(formatSpec);
+							  }
+							  else {
+								  return useLocale ? value.toLocaleString() : value.toString();
+							  }
+						  });
 };
 
-String.concat = function String$concat() {
-    return Array.prototype.join.call(arguments, '');
+ss.formatString = function String$format(format) {
+	return ss._formatString(format, arguments, /* useLocale */ false);
 };
 
-String.prototype.endsWith = function String$endsWith(suffix) {
-    if (!suffix.length) {
-        return true;
-    }
-    if (suffix.length > this.length) {
-        return false;
-    }
-    return (this.substr(this.length - suffix.length) == suffix);
+ss.stringFromChar = function ss$stringFromChar(ch, count) {
+	var s = ch;
+	for (var i = 1; i < count; i++) {
+		s += ch;
+	}
+	return s;
 };
 
-String.equals = function String$equals1(s1, s2, ignoreCase) {
-    return String.compare(s1, s2, ignoreCase) == 0;
+ss.htmlDecode = function ss$htmlDecode(s) {
+	var div = document.createElement('div');
+	div.innerHTML = s;
+	return div.textContent || div.innerText;
 };
 
-String._format = function String$_format(format, values, useLocale) {
-    if (!String._formatRE) {
-        String._formatRE = /(\{[^\}^\{]+\})/g;
-    }
-
-    return format.replace(String._formatRE,
-                          function(str, m) {
-                              var index = parseInt(m.substr(1));
-                              var value = values[index + 1];
-                              if (ss.isNullOrUndefined(value)) {
-                                  return '';
-                              }
-                              if (value.format) {
-                                  var formatSpec = null;
-                                  var formatIndex = m.indexOf(':');
-                                  if (formatIndex > 0) {
-                                      formatSpec = m.substring(formatIndex + 1, m.length - 1);
-                                  }
-                                  return useLocale ? value.localeFormat(formatSpec) : value.format(formatSpec);
-                              }
-                              else {
-                                  return useLocale ? value.toLocaleString() : value.toString();
-                              }
-                          });
+ss.htmlEncode = function ss$htmlEncode(s) {
+	var div = document.createElement('div');
+	div.appendChild(document.createTextNode(s));
+	return div.innerHTML.replace(/\"/g, '&quot;');
 };
 
-String.format = function String$format(format) {
-    return String._format(format, arguments, /* useLocale */ false);
-};
-
-String.fromChar = function String$fromChar(ch, count) {
-    var s = ch;
-    for (var i = 1; i < count; i++) {
-        s += ch;
-    }
-    return s;
-};
-
-String.prototype.htmlDecode = function String$htmlDecode() {
-    var div = document.createElement('div');
-    div.innerHTML = this;
-    return div.textContent || div.innerText;
-};
-
-String.prototype.htmlEncode = function String$htmlEncode() {
-    var div = document.createElement('div');
-    div.appendChild(document.createTextNode(this));
-    return div.innerHTML.replace(/\"/g, '&quot;');
-};
-
-String.prototype.indexOfAny = function String$indexOfAny(chars, startIndex, count) {
-    var length = this.length;
-    if (!length) {
-        return -1;
-    }
+ss.indexOfAnyString = function ss$indexOfAnyString(s, chars, startIndex, count) {
+	var length = s.length;
+	if (!length) {
+		return -1;
+	}
 
 	chars = String.fromCharCode.apply(null, chars);
-    startIndex = startIndex || 0;
-    count = count || length;
+	startIndex = startIndex || 0;
+	count = count || length;
 
-    var endIndex = startIndex + count - 1;
-    if (endIndex >= length) {
-        endIndex = length - 1;
-    }
+	var endIndex = startIndex + count - 1;
+	if (endIndex >= length) {
+		endIndex = length - 1;
+	}
 
-    for (var i = startIndex; i <= endIndex; i++) {
-        if (chars.indexOf(this.charAt(i)) >= 0) {
-            return i;
-        }
-    }
-    return -1;
+	for (var i = startIndex; i <= endIndex; i++) {
+		if (chars.indexOf(s.charAt(i)) >= 0) {
+			return i;
+		}
+	}
+	return -1;
 };
 
-String.prototype.insert = function String$insert(index, value) {
-    if (!value) {
-        return this.valueOf();
-    }
-    if (!index) {
-        return value + this;
-    }
-    var s1 = this.substr(0, index);
-    var s2 = this.substr(index);
-    return s1 + value + s2;
+ss.insertString = function ss$insertString(s, index, value) {
+	if (!value) {
+		return s;
+	}
+	if (!index) {
+		return value + s;
+	}
+	var s1 = s.substr(0, index);
+	var s2 = s.substr(index);
+	return s1 + value + s2;
 };
 
-String.isNullOrEmpty = function String$isNullOrEmpty(s) {
-    return !s || !s.length;
+ss.isNullOrEmptyString = function ss$isNullOrEmptyString(s) {
+	return !s || !s.length;
 };
 
-String.prototype.lastIndexOfAny = function String$lastIndexOfAny(chars, startIndex, count) {
-    var length = this.length;
-    if (!length) {
-        return -1;
-    }
+ss.lastIndexOfAnyString = function ss$lastIndexOfAnyString(s, chars, startIndex, count) {
+	var length = s.length;
+	if (!length) {
+		return -1;
+	}
 
 	chars = String.fromCharCode.apply(null, chars);
-    startIndex = startIndex || length - 1;
-    count = count || length;
+	startIndex = startIndex || length - 1;
+	count = count || length;
 
-    var endIndex = startIndex - count + 1;
-    if (endIndex < 0) {
-        endIndex = 0;
-    }
+	var endIndex = startIndex - count + 1;
+	if (endIndex < 0) {
+		endIndex = 0;
+	}
 
-    for (var i = startIndex; i >= endIndex; i--) {
-        if (chars.indexOf(this.charAt(i)) >= 0) {
-            return i;
-        }
-    }
-    return -1;
+	for (var i = startIndex; i >= endIndex; i--) {
+		if (chars.indexOf(s.charAt(i)) >= 0) {
+			return i;
+		}
+	}
+	return -1;
 };
 
-String.localeFormat = function String$localeFormat(format) {
-    return String._format(format, arguments, /* useLocale */ true);
+ss.localeFormatString = function ss$localeFormatString(format) {
+	return ss._formatString(format, arguments, /* useLocale */ true);
 };
 
-String.prototype.padLeft = function String$padLeft(totalWidth, ch) {
-    if (this.length < totalWidth) {
-        ch = String.fromCharCode(ch || 0x20);
-        return String.fromChar(ch, totalWidth - this.length) + this;
-    }
-    return this.valueOf();
+ss.padLeftString = function ss$padLeftString(s, totalWidth, ch) {
+	if (s.length < totalWidth) {
+		ch = String.fromCharCode(ch || 0x20);
+		return ss.stringFromChar(ch, totalWidth - s.length) + s;
+	}
+	return s;
 };
 
-String.prototype.padRight = function String$padRight(totalWidth, ch) {
-    if (this.length < totalWidth) {
-        ch = String.fromCharCode(ch || 0x20);
-        return this + String.fromChar(ch, totalWidth - this.length);
-    }
-    return this.valueOf();
+ss.padRightString = function ss$padRightString(s, totalWidth, ch) {
+	if (s.length < totalWidth) {
+		ch = String.fromCharCode(ch || 0x20);
+		return s + ss.stringFromChar(ch, totalWidth - s.length);
+	}
+	return s;
 };
 
-String.prototype.remove = function String$remove(index, count) {
-    if (!count || ((index + count) > this.length)) {
-        return this.substr(0, index);
-    }
-    return this.substr(0, index) + this.substr(index + count);
+ss.removeString = function ss$removeString(s, index, count) {
+	if (!count || ((index + count) > this.length)) {
+		return s.substr(0, index);
+	}
+	return s.substr(0, index) + s.substr(index + count);
 };
 
-String.prototype.replaceAll = function String$replaceAll(oldValue, newValue) {
-    newValue = newValue || '';
-    return this.split(oldValue).join(newValue);
+ss.replaceAllString = function ss$replaceAllString(s, oldValue, newValue) {
+	newValue = newValue || '';
+	return s.split(oldValue).join(newValue);
 };
 
-String.prototype.startsWith = function String$startsWith(prefix) {
-    if (!prefix.length) {
-        return true;
-    }
-    if (prefix.length > this.length) {
-        return false;
-    }
-    return (this.substr(0, prefix.length) == prefix);
+ss.startsWithString = function ss$startsWithString(s, prefix) {
+	if (!prefix.length) {
+		return true;
+	}
+	if (prefix.length > s.length) {
+		return false;
+	}
+	return (s.substr(0, prefix.length) == prefix);
 };
 
 if (!String.prototype.trim) {
-    String.prototype.trim = function String$trim() {
-        return this.trimEnd().trimStart();
-    };
+	String.prototype.trim = function String$trim() {
+		return ss.trimStartString(ss.trimEndString(this));
+	};
 }
 
-String.prototype.trimEnd = function String$trimEnd() {
-    return this.replace(/\s*$/, '');
+ss.trimEndString = function ss$trimEndString(s) {
+	return s.replace(/\s*$/, '');
 };
 
-String.prototype.trimStart = function String$trimStart() {
-    return this.replace(/^\s*/, '');
+ss.trimStartString = function ss$trimStartString(s) {
+	return s.replace(/^\s*/, '');
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 // Array Extensions
 
-Array.__typeName = 'Array';
-Array.__baseType = Object;
-Array.__interfaces = [ ss_IEnumerable, ss_ICollection, ss_IList ];
-Array.__class = true;
-
-Array.prototype.get_item = function Array$get_item(index) {
-	return this[index];
-};
-
-Array.prototype.set_item = function Array$set_item(index, value) {
-	this[index] = value;
-};
-
-Array.prototype.get_count = function Array$get_count() {
-	return this.length;
-};
-
-Array.prototype.getValue = function Array$getValue(indices) {
-	if (indices.length != (this._sizes ? this._sizes.length : 1))
+ss.arrayGet2 = function ss$arrayGet2(arr, indices) {
+	if (indices.length != (arr._sizes ? arr._sizes.length : 1))
 		throw 'Invalid number of indices';
 
-	if (indices[0] < 0 || indices[0] >= (this._sizes ? this._sizes[0] : this.length))
+	if (indices[0] < 0 || indices[0] >= (arr._sizes ? arr._sizes[0] : arr.length))
 		throw 'Index 0 out of range';
 
 	var idx = indices[0];
-	if (this._sizes) {
-		for (var i = 1; i < this._sizes.length; i++) {
-			if (indices[i] < 0 || indices[i] >= this._sizes[i])
+	if (arr._sizes) {
+		for (var i = 1; i < arr._sizes.length; i++) {
+			if (indices[i] < 0 || indices[i] >= arr._sizes[i])
 				throw 'Index ' + i + ' out of range';
-			idx = idx * this._sizes[i] + indices[i];
+			idx = idx * arr._sizes[i] + indices[i];
 		}
 	}
-	var r = this[idx];
-	return typeof r !== 'undefined' ? r : this._defvalue;
+	var r = arr[idx];
+	return typeof r !== 'undefined' ? r : arr._defvalue;
 };
 
-Array.prototype.get = function Array$get() {
-	return this.getValue(arguments);
-};
+ss.arrayGet = function ss$arrayGet(arr) {
+	return ss.arrayGet2(arr, Array.prototype.slice.call(arguments, 1));
+}
 
-Array.prototype.setValue = function Array$setValue(value, indices) {
-	if (indices.length != (this._sizes ? this._sizes.length : 1))
+ss.arraySet2 = function ss$arraySet2(arr, value, indices) {
+	if (indices.length != (arr._sizes ? arr._sizes.length : 1))
 		throw 'Invalid number of indices';
 
-	if (indices[0] < 0 || indices[0] >= (this._sizes ? this._sizes[0] : this.length))
+	if (indices[0] < 0 || indices[0] >= (arr._sizes ? arr._sizes[0] : arr.length))
 		throw 'Index 0 out of range';
 
 	var idx = indices[0];
-	if (this._sizes) {
-		for (var i = 1; i < this._sizes.length; i++) {
-			if (indices[i] < 0 || indices[i] >= this._sizes[i])
+	if (arr._sizes) {
+		for (var i = 1; i < arr._sizes.length; i++) {
+			if (indices[i] < 0 || indices[i] >= arr._sizes[i])
 				throw 'Index ' + i + ' out of range';
-			idx = idx * this._sizes[i] + indices[i];
+			idx = idx * arr._sizes[i] + indices[i];
 		}
 	}
-	this[idx] = value;
+	arr[idx] = value;
 };
 
-Array.prototype.set = function Array$set() {
-	return this.setValue(arguments[arguments.length - 1], Array.prototype.slice.call(arguments, 0, arguments.length - 1));
+ss.arraySet = function ss$arraySet() {
+	return ss.arraySet2(arguments[0], arguments[arguments.length - 1], Array.prototype.slice.call(arguments, 1, arguments.length - 1));
 };
 
-Array.prototype.get_rank = function Array$get_rank() {
-	return this._sizes ? this._sizes.length : 1;
+ss.arrayRank = function ss$arrayRank(arr) {
+	return arr._sizes ? arr._sizes.length : 1;
 };
 
-Array.prototype.getLength = function Array$getLength(dimension) {
-	if (dimension >= (this._sizes ? this._sizes.length : 1))
+ss.arrayLength = function ss$arrayLength(arr, dimension) {
+	if (dimension >= (arr._sizes ? arr._sizes.length : 1))
 		throw 'Invalid dimension';
-	return this._sizes ? this._sizes[dimension] : this.length;
+	return arr._sizes ? arr._sizes[dimension] : arr.length;
 };
 
-Array.prototype.extract = function Array$extract(start, count) {
-   if (!ss.isValue(count)) {
-       return this.slice(start);
-   }
-   return this.slice(start, start + count);
+ss.arrayExtract = function ss$arrayExtract(arr, start, count) {
+	if (!ss.isValue(count)) {
+		return arr.slice(start);
+	}
+	return arr.slice(start, start + count);
 };
 
-Array.prototype.add = function Array$add(item) {
-    this[this.length] = item;
-};
-
-Array.prototype.addRange = function Array$addRange(items) {
+ss.arrayAddRange = function ss$arrayAddRange(arr, items) {
 	if (items instanceof Array) {
-		this.push.apply(this, items);
+		arr.push.apply(arr, items);
 	}
 	else {
-		var e = items.getEnumerator();
+		var e = ss.getEnumerator(items);
 		try {
 			while (e.moveNext()) {
-				this.add(e.get_current());
+				ss.add(arr, e.current());
 			}
 		}
 		finally {
 			if (ss_IDisposable.isInstanceOfType(e)) {
-				Type.cast(e, ss_IDisposable).dispose();
+				ss.cast(e, ss_IDisposable).dispose();
 			}
 		}
 	}
 };
 
-Array.prototype.clear = function Array$clear() {
-    this.length = 0;
+ss.arrayClone = function ss$arrayClone(arr) {
+	if (arr.length === 1) {
+		return [arr[0]];
+	}
+	else {
+		return Array.apply(null, arr);
+	}
 };
 
-Array.prototype.clone = function Array$clone() {
-    if (this.length === 1) {
-        return [this[0]];
-    }
-    else {
-        return Array.apply(null, this);
-    }
-};
-
-Array.prototype.contains = function Array$contains(item) {
-    var index = this.indexOf(item);
-    return (index >= 0);
-};
-
-Array.prototype.peekFront = function Array$peekFront(item) {
-	if (this.length)
-		return this[0];
+ss.arrayPeekFront = function ss$arrayPeekFront(arr) {
+	if (arr.length)
+		return arr[0];
 	throw 'Array is empty';
 };
 
-Array.prototype.peekBack = function Array$peekBack(item) {
-	if (this.length)
-		return this[this.length - 1];
+ss.arrayPeekBack = function ss$arrayPeekBack(arr) {
+	if (arr.length)
+		return arr[arr.length - 1];
 	throw 'Array is empty';
 };
 
 if (!Array.prototype.every) {
-    Array.prototype.every = function Array$every(callback, instance) {
-        var length = this.length;
-        for (var i = 0; i < length; i++) {
-            if (i in this && !callback.call(instance, this[i], i, this)) {
-                return false;
-            }
-        }
-        return true;
-    };
+	Array.prototype.every = function Array$every(callback, instance) {
+		var length = this.length;
+		for (var i = 0; i < length; i++) {
+			if (i in this && !callback.call(instance, this[i], i, this)) {
+				return false;
+			}
+		}
+		return true;
+	};
 }
 
 if (!Array.prototype.filter) {
-    Array.prototype.filter = function Array$filter(callback, instance) {
-        var length = this.length;    
-        var filtered = [];
-        for (var i = 0; i < length; i++) {
-            if (i in this) {
-                var val = this[i];
-                if (callback.call(instance, val, i, this)) {
-                    filtered.push(val);
-                }
-            }
-        }
-        return filtered;
-    };
+	Array.prototype.filter = function Array$filter(callback, instance) {
+		var length = this.length;    
+		var filtered = [];
+		for (var i = 0; i < length; i++) {
+			if (i in this) {
+				var val = this[i];
+				if (callback.call(instance, val, i, this)) {
+					filtered.push(val);
+				}
+			}
+		}
+		return filtered;
+	};
 }
 
 if (!Array.prototype.forEach) {
-    Array.prototype.forEach = function Array$forEach(callback, instance) {
-        var length = this.length;
-        for (var i = 0; i < length; i++) {
-            if (i in this) {
-                callback.call(instance, this[i], i, this);
-            }
-        }
-    };
+	Array.prototype.forEach = function Array$forEach(callback, instance) {
+		var length = this.length;
+		for (var i = 0; i < length; i++) {
+			if (i in this) {
+				callback.call(instance, this[i], i, this);
+			}
+		}
+	};
 }
 
-Array.prototype.getEnumerator = function Array$getEnumerator() {
-    return new ss_ArrayEnumerator(this);
-};
-
-if (!Array.prototype.indexOf) {
-    Array.prototype.indexOf = function Array$indexOf(item, startIndex) {
-        startIndex = startIndex || 0;
-        var length = this.length;
-        if (length) {
-            for (var index = startIndex; index < length; index++) {
-                if (this[index] === item) {
-                    return index;
-                }
-            }
-        }
-        return -1;
-    };
+ss.indexOfArray = function ss$indexOfArray(arr, item, startIndex) {
+	startIndex = startIndex || 0;
+	for (var i = startIndex; i < arr.length; i++) {
+		if (ss.staticEquals(arr[i], item)) {
+			return i;
+		}
+	}
+	return -1;
 }
 
-Array.prototype.insert = function Array$insert(index, item) {
-    this.splice(index, 0, item);
-};
-
-Array.prototype.insertRange = function Array$insertRange(index, items) {
+ss.arrayInsertRange = function ss$arrayInsertRange(arr, index, items) {
 	if (items instanceof Array) {
 		if (index === 0) {
-			this.unshift.apply(this, items);
+			arr.unshift.apply(arr, items);
 		}
 		else {
 			for (var i = 0; i < items.length; i++) {
-				this.splice(index + i, 0, items[i]);
+				arr.splice(index + i, 0, items[i]);
 			}
 		}
 	}
 	else {
-		var e = items.getEnumerator();
+		var e = ss.getEnumerator(items);
 		try {
 			while (e.moveNext()) {
-				this.insert(index, e.get_current());
+				arr.insert(index, e.current());
 				index++;
 			}
 		}
 		finally {
 			if (ss_IDisposable.isInstanceOfType(e)) {
-				Type.cast(e, ss_IDisposable).dispose();
+				ss.cast(e, ss_IDisposable).dispose();
 			}
 		}
 	}
 };
 
 if (!Array.prototype.map) {
-    Array.prototype.map = function Array$map(callback, instance) {
-        var length = this.length;
-        var mapped = new Array(length);
-        for (var i = 0; i < length; i++) {
-            if (i in this) {
-                mapped[i] = callback.call(instance, this[i], i, this);
-            }
-        }
-        return mapped;
-    };
+	Array.prototype.map = function Array$map(callback, instance) {
+		var length = this.length;
+		var mapped = new Array(length);
+		for (var i = 0; i < length; i++) {
+			if (i in this) {
+				mapped[i] = callback.call(instance, this[i], i, this);
+			}
+		}
+		return mapped;
+	};
 }
 
-Array.parse = function Array$parse(s) {
-    return eval('(' + s + ')');
-};
-
-Array.prototype.remove = function Array$remove(item) {
-    var index = this.indexOf(item);
-    if (index >= 0) {
-        this.splice(index, 1);
-        return true;
-    }
-    return false;
-};
-
-Array.prototype.removeAt = function Array$removeAt(index) {
-    this.splice(index, 1);
-};
-
-Array.prototype.removeRange = function Array$removeRange(index, count) {
-    this.splice(index, count);
+ss.arrayRemoveRange = function ss$arrayRemoveRange(arr, index, count) {
+	arr.splice(index, count);
 };
 
 if (!Array.prototype.some) {
-    Array.prototype.some = function Array$some(callback, instance) {
-        var length = this.length;
-        for (var i = 0; i < length; i++) {
-            if (i in this && callback.call(instance, this[i], i, this)) {
-                return true;
-            }
-        }
-        return false;
-    };
+	Array.prototype.some = function Array$some(callback, instance) {
+		var length = this.length;
+		for (var i = 0; i < length; i++) {
+			if (i in this && callback.call(instance, this[i], i, this)) {
+				return true;
+			}
+		}
+		return false;
+	};
 }
 
-Array.toArray = function Array$toArray(obj) {
-    return Array.prototype.slice.call(obj);
-};
-
-Array.fromEnumerable = function Array$fromEnumerable(enm) {
-	var e = enm.getEnumerator(), r = [];
+ss.arrayFromEnumerable = function ss$arrayFromEnumerable(enm) {
+	var e = ss.getEnumerator(enm), r = [];
 	try {
 		while (e.moveNext())
-			r.push(e.get_current());
+			r.push(e.current());
 	}
 	finally {
 		e.dispose();
@@ -1206,7 +1175,7 @@ Array.fromEnumerable = function Array$fromEnumerable(enm) {
 	return r;
 };
 
-Array.multidim = function Array$multidim(defvalue, sizes) {
+ss.multidimArray = function ss$multidimArray(defvalue, sizes) {
 	var arr = [];
 	arr._defvalue = defvalue;
 	arr._sizes = [arguments[1]];
@@ -1220,243 +1189,202 @@ Array.multidim = function Array$multidim(defvalue, sizes) {
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-// RegExp Extensions
-
-RegExp.__typeName = 'RegExp';
-RegExp.__baseType = Object;
-RegExp.__class = true;
-
-///////////////////////////////////////////////////////////////////////////////
 // Date Extensions
 
-Date.__typeName = 'Date';
-Date.__baseType = Object;
-
-Date.getDefaultValue = Date.createInstance = function Date$getDefaultValue() {
-	return new Date(0);
+ss.utcNow = function ss$utcNow() {
+	var d = new Date();
+	return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds()));
 };
 
-Date.prototype.getHashCode = function Date$getHashCode() {
-	return this.valueOf() & 0xffffffff;
+ss.today = function ss$today() {
+	var d = new Date();
+	return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+ss.formatDate = function ss$formatDate(date, format) {
+	if (ss.isNullOrUndefined(format) || (format.length == 0) || (format == 'i')) {
+		return date.toString();
+	}
+	if (format == 'id') {
+		return date.toDateString();
+	}
+	if (format == 'it') {
+		return date.toTimeString();
+	}
+
+	return ss._netFormatDate(date, format, false);
 };
 
-Date.prototype.equals = function Date$equals(d) {
-	return this.valueOf() === d.valueOf();
+ss.localeFormatDate = function ss$localeFormatDate(date, format) {
+	if (ss.isNullOrUndefined(format) || (format.length == 0) || (format == 'i')) {
+		return date.toLocaleString();
+	}
+	if (format == 'id') {
+		return date.toLocaleDateString();
+	}
+	if (format == 'it') {
+		return date.toLocaleTimeString();
+	}
+
+	return ss._netFormatDate(date, format, true);
 };
 
-Date.get_now = function Date$get_now() {
-    return new Date();
+ss._netFormatDate = function ss$_netFormatDate(dt, format, useLocale) {
+	var dtf = useLocale ? ss_CultureInfo.CurrentCulture.dateFormat : ss_CultureInfo.InvariantCulture.dateFormat;
+
+	if (format.length == 1) {
+		switch (format) {
+			case 'f': format = dtf.longDatePattern + ' ' + dtf.shortTimePattern; break;
+			case 'F': format = dtf.dateTimePattern; break;
+
+			case 'd': format = dtf.shortDatePattern; break;
+			case 'D': format = dtf.longDatePattern; break;
+
+			case 't': format = dtf.shortTimePattern; break;
+			case 'T': format = dtf.longTimePattern; break;
+
+			case 'g': format = dtf.shortDatePattern + ' ' + dtf.shortTimePattern; break;
+			case 'G': format = dtf.shortDatePattern + ' ' + dtf.longTimePattern; break;
+
+			case 'R': case 'r':
+				dtf = ss_CultureInfo.InvariantCulture.dateFormat;
+				format = dtf.gmtDateTimePattern;
+				break;
+			case 'u': format = dtf.universalDateTimePattern; break;
+			case 'U':
+				format = dtf.dateTimePattern;
+				dt = new Date(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate(),
+							  dt.getUTCHours(), dt.getUTCMinutes(), dt.getUTCSeconds(), dt.getUTCMilliseconds());
+				break;
+
+			case 's': format = dtf.sortableDateTimePattern; break;
+		}
+	}
+
+	if (format.charAt(0) == '%') {
+		format = format.substr(1);
+	}
+
+	if (!Date._formatRE) {
+		Date._formatRE = /'.*?[^\\]'|dddd|ddd|dd|d|MMMM|MMM|MM|M|yyyy|yy|y|hh|h|HH|H|mm|m|ss|s|tt|t|fff|ff|f|zzz|zz|z/g;
+	}
+
+	var re = Date._formatRE;
+	var sb = new ss_StringBuilder();
+
+	re.lastIndex = 0;
+	while (true) {
+		var index = re.lastIndex;
+		var match = re.exec(format);
+
+		sb.append(format.slice(index, match ? match.index : format.length));
+		if (!match) {
+			break;
+		}
+
+		var fs = match[0];
+		var part = fs;
+		switch (fs) {
+			case 'dddd':
+				part = dtf.dayNames[dt.getDay()];
+				break;
+			case 'ddd':
+				part = dtf.shortDayNames[dt.getDay()];
+				break;
+			case 'dd':
+				part = ss.padLeftString(dt.getDate().toString(), 2, 0x30);
+				break;
+			case 'd':
+				part = dt.getDate();
+				break;
+			case 'MMMM':
+				part = dtf.monthNames[dt.getMonth()];
+				break;
+			case 'MMM':
+				part = dtf.shortMonthNames[dt.getMonth()];
+				break;
+			case 'MM':
+				part = ss.padLeftString((dt.getMonth() + 1).toString(), 2, 0x30);
+				break;
+			case 'M':
+				part = (dt.getMonth() + 1);
+				break;
+			case 'yyyy':
+				part = dt.getFullYear();
+				break;
+			case 'yy':
+				part = ss.padLeftString((dt.getFullYear() % 100).toString(), 2, 0x30);
+				break;
+			case 'y':
+				part = (dt.getFullYear() % 100);
+				break;
+			case 'h': case 'hh':
+				part = dt.getHours() % 12;
+				if (!part) {
+					part = '12';
+				}
+				else if (fs == 'hh') {
+					part = ss.padLeftString(part.toString(), 2, 0x30);
+				}
+				break;
+			case 'HH':
+				part = ss.padLeftString(dt.getHours().toString(), 2, 0x30);
+				break;
+			case 'H':
+				part = dt.getHours();
+				break;
+			case 'mm':
+				part = ss.padLeftString(dt.getMinutes().toString(), 2, 0x30);
+				break;
+			case 'm':
+				part = dt.getMinutes();
+				break;
+			case 'ss':
+				part = ss.padLeftString(dt.getSeconds().toString(), 2, 0x30);
+				break;
+			case 's':
+				part = dt.getSeconds();
+				break;
+			case 't': case 'tt':
+				part = (dt.getHours() < 12) ? dtf.amDesignator : dtf.pmDesignator;
+				if (fs == 't') {
+					part = part.charAt(0);
+				}
+				break;
+			case 'fff':
+				part = ss.padLeftString(dt.getMilliseconds().toString(), 3, 0x30);
+				break;
+			case 'ff':
+				part = ss.padLeftString(dt.getMilliseconds().toString(), 3).substr(0, 2);
+				break;
+			case 'f':
+				part = ss.padLeftString(dt.getMilliseconds().toString(), 3).charAt(0);
+				break;
+			case 'z':
+				part = dt.getTimezoneOffset() / 60;
+				part = ((part >= 0) ? '-' : '+') + Math.floor(Math.abs(part));
+				break;
+			case 'zz': case 'zzz':
+				part = dt.getTimezoneOffset() / 60;
+				part = ((part >= 0) ? '-' : '+') + Math.floor(ss.padLeftString(Math.abs(part)).toString(), 2, 0x30);
+				if (fs == 'zzz') {
+					part += dtf.timeSeparator + Math.abs(ss.padLeftString(dt.getTimezoneOffset() % 60).toString(), 2, 0x30);
+				}
+				break;
+			default:
+				if (part.charAt(0) == '\'') {
+					part = part.substr(1, part.length - 2).replace(/\\'/g, '\'');
+				}
+				break;
+		}
+		sb.append(part);
+	}
+
+	return sb.toString();
 };
 
-Date.get_today = function Date$get_today() {
-    var d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-};
-
-Date.areEqual = function Date$areEqual(a, b) {
-    if (!ss.isValue(a))
-        return !ss.isValue(b);
-    else if (!ss.isValue(b))
-        return false;
-    else
-        return a.valueOf() === b.valueOf();
-};
-
-Date.areNotEqual = function Date$areNotEqual(a, b) {
-    return !Date.areEqual(a, b);
-};
-
-Date.prototype.format = function Date$format(format) {
-    if (ss.isNullOrUndefined(format) || (format.length == 0) || (format == 'i')) {
-        return this.toString();
-    }
-    if (format == 'id') {
-        return this.toDateString();
-    }
-    if (format == 'it') {
-        return this.toTimeString();
-    }
-
-    return this._netFormat(format, false);
-};
-
-Date.prototype.localeFormat = function Date$localeFormat(format) {
-    if (ss.isNullOrUndefined(format) || (format.length == 0) || (format == 'i')) {
-        return this.toLocaleString();
-    }
-    if (format == 'id') {
-        return this.toLocaleDateString();
-    }
-    if (format == 'it') {
-        return this.toLocaleTimeString();
-    }
-
-    return this._netFormat(format, true);
-};
-
-Date.prototype._netFormat = function Date$_netFormat(format, useLocale) {
-    var dt = this;
-    var dtf = useLocale ? ss_CultureInfo.CurrentCulture.dateFormat : ss_CultureInfo.InvariantCulture.dateFormat;
-
-    if (format.length == 1) {
-        switch (format) {
-            case 'f': format = dtf.longDatePattern + ' ' + dtf.shortTimePattern; break;
-            case 'F': format = dtf.dateTimePattern; break;
-
-            case 'd': format = dtf.shortDatePattern; break;
-            case 'D': format = dtf.longDatePattern; break;
-
-            case 't': format = dtf.shortTimePattern; break;
-            case 'T': format = dtf.longTimePattern; break;
-
-            case 'g': format = dtf.shortDatePattern + ' ' + dtf.shortTimePattern; break;
-            case 'G': format = dtf.shortDatePattern + ' ' + dtf.longTimePattern; break;
-
-            case 'R': case 'r':
-                dtf = ss_CultureInfo.InvariantCulture.dateFormat;
-                format = dtf.gmtDateTimePattern;
-                break;
-            case 'u': format = dtf.universalDateTimePattern; break;
-            case 'U':
-                format = dtf.dateTimePattern;
-                dt = new Date(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate(),
-                              dt.getUTCHours(), dt.getUTCMinutes(), dt.getUTCSeconds(), dt.getUTCMilliseconds());
-                break;
-
-            case 's': format = dtf.sortableDateTimePattern; break;
-        }
-    }
-
-    if (format.charAt(0) == '%') {
-        format = format.substr(1);
-    }
-
-    if (!Date._formatRE) {
-        Date._formatRE = /'.*?[^\\]'|dddd|ddd|dd|d|MMMM|MMM|MM|M|yyyy|yy|y|hh|h|HH|H|mm|m|ss|s|tt|t|fff|ff|f|zzz|zz|z/g;
-    }
-
-    var re = Date._formatRE;
-    var sb = new ss_StringBuilder();
-
-    re.lastIndex = 0;
-    while (true) {
-        var index = re.lastIndex;
-        var match = re.exec(format);
-
-        sb.append(format.slice(index, match ? match.index : format.length));
-        if (!match) {
-            break;
-        }
-
-        var fs = match[0];
-        var part = fs;
-        switch (fs) {
-            case 'dddd':
-                part = dtf.dayNames[dt.getDay()];
-                break;
-            case 'ddd':
-                part = dtf.shortDayNames[dt.getDay()];
-                break;
-            case 'dd':
-                part = dt.getDate().toString().padLeft(2, 0x30);
-                break;
-            case 'd':
-                part = dt.getDate();
-                break;
-            case 'MMMM':
-                part = dtf.monthNames[dt.getMonth()];
-                break;
-            case 'MMM':
-                part = dtf.shortMonthNames[dt.getMonth()];
-                break;
-            case 'MM':
-                part = (dt.getMonth() + 1).toString().padLeft(2, 0x30);
-                break;
-            case 'M':
-                part = (dt.getMonth() + 1);
-                break;
-            case 'yyyy':
-                part = dt.getFullYear();
-                break;
-            case 'yy':
-                part = (dt.getFullYear() % 100).toString().padLeft(2, 0x30);
-                break;
-            case 'y':
-                part = (dt.getFullYear() % 100);
-                break;
-            case 'h': case 'hh':
-                part = dt.getHours() % 12;
-                if (!part) {
-                    part = '12';
-                }
-                else if (fs == 'hh') {
-                    part = part.toString().padLeft(2, 0x30);
-                }
-                break;
-            case 'HH':
-                part = dt.getHours().toString().padLeft(2, 0x30);
-                break;
-            case 'H':
-                part = dt.getHours();
-                break;
-            case 'mm':
-                part = dt.getMinutes().toString().padLeft(2, 0x30);
-                break;
-            case 'm':
-                part = dt.getMinutes();
-                break;
-            case 'ss':
-                part = dt.getSeconds().toString().padLeft(2, 0x30);
-                break;
-            case 's':
-                part = dt.getSeconds();
-                break;
-            case 't': case 'tt':
-                part = (dt.getHours() < 12) ? dtf.amDesignator : dtf.pmDesignator;
-                if (fs == 't') {
-                    part = part.charAt(0);
-                }
-                break;
-            case 'fff':
-                part = dt.getMilliseconds().toString().padLeft(3, 0x30);
-                break;
-            case 'ff':
-                part = dt.getMilliseconds().toString().padLeft(3).substr(0, 2);
-                break;
-            case 'f':
-                part = dt.getMilliseconds().toString().padLeft(3).charAt(0);
-                break;
-            case 'z':
-                part = dt.getTimezoneOffset() / 60;
-                part = ((part >= 0) ? '-' : '+') + Math.floor(Math.abs(part));
-                break;
-            case 'zz': case 'zzz':
-                part = dt.getTimezoneOffset() / 60;
-                part = ((part >= 0) ? '-' : '+') + Math.floor(Math.abs(part)).toString().padLeft(2, 0x30);
-                if (fs == 'zzz') {
-                    part += dtf.timeSeparator + Math.abs(dt.getTimezoneOffset() % 60).toString().padLeft(2, 0x30);
-                }
-                break;
-            default:
-                if (part.charAt(0) == '\'') {
-                    part = part.substr(1, part.length - 2).replace(/\\'/g, '\'');
-                }
-                break;
-        }
-        sb.append(part);
-    }
-
-    return sb.toString();
-};
-
-Date.parseDate = function Date$parse(s) {
-    // Date.parse returns the number of milliseconds
-    // so we use that to create an actual Date instance
-    return new Date(Date.parse(s));
-};
-
-Date._parseExact = function Date$_parseExact(val, format, culture, utc) {
-    culture = culture || ss_CultureInfo.CurrentCulture;
+ss._parseExactDate = function ss$_parseExactDate(val, format, culture, utc) {
+	culture = culture || ss_CultureInfo.CurrentCulture;
 	var AM = culture.amDesignator, PM = culture.pmDesignator;
 
 	var _isInteger = function(val) {
@@ -1608,181 +1536,147 @@ Date._parseExact = function Date$_parseExact(val, format, culture, utc) {
 		hh -= 12;
 	}
 
-    if (utc)
-	    return new Date(Date.UTC(year, month - 1, date, hh, mm, _ss));
-    else
-        return new Date(year, month - 1, date, hh, mm, _ss);
+	if (utc)
+		return new Date(Date.UTC(year, month - 1, date, hh, mm, _ss));
+	else
+		return new Date(year, month - 1, date, hh, mm, _ss);
 };
 
-Date.parseExact = function Date$parseExact(val, format, culture) {
-    return Date._parseExact(val, format, culture, false);
+ss.parseExactDate = function ss$parseExactDate(val, format, culture) {
+	return ss._parseExactDate(val, format, culture, false);
 };
 
-Date.parseExactUTC = function Date$parseExactUTC(val, format, culture) {
-    return Date._parseExact(val, format, culture, true);
-};
-
-///////////////////////////////////////////////////////////////////////////////
-// Error Extensions
-
-Error.__typeName = 'Error';
-Error.__baseType = Object;
-
-Error.prototype.popStackFrame = function Error$popStackFrame() {
-    if (ss.isNullOrUndefined(this.stack) ||
-        ss.isNullOrUndefined(this.fileName) ||
-        ss.isNullOrUndefined(this.lineNumber)) {
-        return;
-    }
-
-    var stackFrames = this.stack.split('\n');
-    var currentFrame = stackFrames[0];
-    var pattern = this.fileName + ':' + this.lineNumber;
-    while (!ss.isNullOrUndefined(currentFrame) &&
-           currentFrame.indexOf(pattern) === -1) {
-        stackFrames.shift();
-        currentFrame = stackFrames[0];
-    }
-
-    var nextFrame = stackFrames[1];
-    if (isNullOrUndefined(nextFrame)) {
-        return;
-    }
-
-    var nextFrameParts = nextFrame.match(/@(.*):(\d+)$/);
-    if (ss.isNullOrUndefined(nextFrameParts)) {
-        return;
-    }
-
-    stackFrames.shift();
-    this.stack = stackFrames.join("\n");
-    this.fileName = nextFrameParts[1];
-    this.lineNumber = parseInt(nextFrameParts[2]);
-};
-
-Error.createError = function Error$createError(message, errorInfo, innerException) {
-    var e = new Error(message);
-    if (errorInfo) {
-        for (var v in errorInfo) {
-            e[v] = errorInfo[v];
-        }
-    }
-    if (innerException) {
-        e.innerException = innerException;
-    }
-
-    e.popStackFrame();
-    return e;
+ss.parseExactDateUTC = function ss$parseExactDateUTC(val, format, culture) {
+	return ss._parseExactDate(val, format, culture, true);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 // Function Extensions
 
-Function.__typeName = 'Function';
-Function.__baseType = Object;
-Function.__class = true;
-
-Function.empty = function () { };
-
-Function._contains = function Function$_contains(targets, object, method) {
-    for (var i = 0; i < targets.length; i += 2) {
-        if (targets[i] === object && targets[i + 1] === method) {
-            return true;
-        }
-    }
-    return false;
+ss._delegateContains = function ss$_delegateContains(targets, object, method) {
+	for (var i = 0; i < targets.length; i += 2) {
+		if (targets[i] === object && targets[i + 1] === method) {
+			return true;
+		}
+	}
+	return false;
 };
 
-Function._mkdel = function Function$_mkdel(targets) {
-    var delegate = function() {
-        if (targets.length == 2) {
-            return targets[1].apply(targets[0], arguments);
-        }
-        else {
-            var clone = targets.clone();
-            for (var i = 0; i < clone.length; i += 2) {
-                if (Function._contains(targets, clone[i], clone[i + 1])) {
-                    clone[i + 1].apply(clone[i], arguments);
-                }
-            }
-            return null;
-        }
-    };
-    delegate._targets = targets;
+ss._mkdel = function ss$_mkdel(targets) {
+	var delegate = function() {
+		if (targets.length == 2) {
+			return targets[1].apply(targets[0], arguments);
+		}
+		else {
+			var clone = ss.arrayClone(targets);
+			for (var i = 0; i < clone.length; i += 2) {
+				if (ss._delegateContains(targets, clone[i], clone[i + 1])) {
+					clone[i + 1].apply(clone[i], arguments);
+				}
+			}
+			return null;
+		}
+	};
+	delegate._targets = targets;
 
-    return delegate;
+	return delegate;
 };
 
-Function.mkdel = function Function$mkdel(object, method) {
-    if (!object) {
-        return method;
-    }
-    return Function._mkdel([object, method]);
+ss.mkdel = function ss$mkdel(object, method) {
+	if (!object) {
+		return method;
+	}
+	return ss._mkdel([object, method]);
 };
 
-Function.combine = function Function$combine(delegate1, delegate2) {
-    if (!delegate1) {
-        if (!delegate2._targets) {
-            return Function.mkdel(null, delegate2);
-        }
-        return delegate2;
-    }
-    if (!delegate2) {
-        if (!delegate1._targets) {
-            return Function.mkdel(null, delegate1);
-        }
-        return delegate1;
-    }
+ss.delegateCombine = function ss$delegateCombine(delegate1, delegate2) {
+	if (!delegate1) {
+		if (!delegate2._targets) {
+			return ss.mkdel(null, delegate2);
+		}
+		return delegate2;
+	}
+	if (!delegate2) {
+		if (!delegate1._targets) {
+			return ss.mkdel(null, delegate1);
+		}
+		return delegate1;
+	}
 
-    var targets1 = delegate1._targets ? delegate1._targets : [null, delegate1];
-    var targets2 = delegate2._targets ? delegate2._targets : [null, delegate2];
+	var targets1 = delegate1._targets ? delegate1._targets : [null, delegate1];
+	var targets2 = delegate2._targets ? delegate2._targets : [null, delegate2];
 
-    return Function._mkdel(targets1.concat(targets2));
+	return ss._mkdel(targets1.concat(targets2));
 };
 
-Function.remove = function Function$remove(delegate1, delegate2) {
-    if (!delegate1 || (delegate1 === delegate2)) {
-        return null;
-    }
-    if (!delegate2) {
-        return delegate1;
-    }
+ss.delegateRemove = function ss$delegateRemove(delegate1, delegate2) {
+	if (!delegate1 || (delegate1 === delegate2)) {
+		return null;
+	}
+	if (!delegate2) {
+		return delegate1;
+	}
 
-    var targets = delegate1._targets;
-    var object = null;
-    var method;
-    if (delegate2._targets) {
-        object = delegate2._targets[0];
-        method = delegate2._targets[1];
-    }
-    else {
-        method = delegate2;
-    }
+	var targets = delegate1._targets;
+	var object = null;
+	var method;
+	if (delegate2._targets) {
+		object = delegate2._targets[0];
+		method = delegate2._targets[1];
+	}
+	else {
+		method = delegate2;
+	}
 
-    for (var i = 0; i < targets.length; i += 2) {
-        if ((targets[i] === object) && (targets[i + 1] === method)) {
-            if (targets.length == 2) {
-                return null;
-            }
-            targets.splice(i, 2);
-            return Function._mkdel(targets);
-        }
-    }
+	for (var i = 0; i < targets.length; i += 2) {
+		if ((targets[i] === object) && (targets[i + 1] === method)) {
+			if (targets.length == 2) {
+				return null;
+			}
+			var t = ss.arrayClone(targets);
+			t.splice(i, 2);
+			return ss._mkdel(t);
+		}
+	}
 
-    return delegate1;
+	return delegate1;
 };
 
-Function.clone = function Function$clone(source) {
-	return source._targets ? Function._mkdel(source._targets) : function() { return source.apply(this, arguments); };
+ss.delegateEquals = function ss$delegateEquals(a, b) {
+	if (a === b)
+		return true;
+	if (!a._targets && !b._targets)
+		return false;
+	var ta = a._targets || [null, a], tb = b._targets || [null, b];
+	if (ta.length != tb.length)
+		return false;
+	for (var i = 0; i < ta.length; i++) {
+		if (ta[i] !== tb[i])
+			return false;
+	}
+	return true;
 };
 
-Function.thisFix = function Function$thisFix(source) {
-    return function() {
-        var x = [this];
-        for(var i = 0; i < arguments.length; i++)
-            x.push(arguments[i]);
-        return source.apply(source, x);
-    };
+ss.delegateClone = function ss$delegateClone(source) {
+	return source._targets ? ss._mkdel(source._targets) : function() { return source.apply(this, arguments); };
+};
+
+ss.thisFix = function ss$thisFix(source) {
+	return function() {
+		var x = [this];
+		for(var i = 0; i < arguments.length; i++)
+			x.push(arguments[i]);
+		return source.apply(source, x);
+	};
+};
+
+ss.getInvocationList = function ss$getInvocationList(delegate) {
+	if (!delegate._targets)
+		return [delegate];
+	var result = [];
+	for (var i = 0; i < delegate._targets.length; i += 2)
+		result.push(ss.mkdel(delegate._targets[i], delegate._targets[i + 1]));
+	return result;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1792,41 +1686,41 @@ ss.Debug = global.Debug || function() {};
 ss.Debug.__typeName = 'Debug';
 
 if (!ss.Debug.writeln) {
-    ss.Debug.writeln = function Debug$writeln(text) {
-        if (global.console) {
-            if (global.console.debug) {
-                global.console.debug(text);
-                return;
-            }
-            else if (global.console.log) {
-                global.console.log(text);
-                return;
-            }
-        }
-        else if (global.opera &&
-            global.opera.postError) {
-            global.opera.postError(text);
-            return;
-        }
-    }
+	ss.Debug.writeln = function Debug$writeln(text) {
+		if (global.console) {
+			if (global.console.debug) {
+				global.console.debug(text);
+				return;
+			}
+			else if (global.console.log) {
+				global.console.log(text);
+				return;
+			}
+		}
+		else if (global.opera &&
+			global.opera.postError) {
+			global.opera.postError(text);
+			return;
+		}
+	}
 };
 
 ss.Debug._fail = function Debug$_fail(message) {
-    ss.Debug.writeln(message);
-    eval('debugger;');
+	ss.Debug.writeln(message);
+	eval('debugger;');
 };
 
 ss.Debug.assert = function Debug$assert(condition, message) {
-    if (!condition) {
-        message = 'Assert failed: ' + message;
-        if (confirm(message + '\r\n\r\nBreak into debugger?')) {
-            ss.Debug._fail(message);
-        }
-    }
+	if (!condition) {
+		message = 'Assert failed: ' + message;
+		if (confirm(message + '\r\n\r\nBreak into debugger?')) {
+			ss.Debug._fail(message);
+		}
+	}
 };
 
 ss.Debug.fail = function Debug$fail(message) {
-    ss.Debug._fail(message);
+	ss.Debug._fail(message);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1834,7 +1728,7 @@ ss.Debug.fail = function Debug$fail(message) {
 
 var ss_Enum = function Enum$() {
 };
-Type.registerClass(global, 'ss.Enum', ss_Enum);
+ss.registerClass(global, 'ss.Enum', ss_Enum);
 
 ss_Enum.parse = function Enum$parse(enumType, s) {
 	var values = enumType.prototype;
@@ -1888,7 +1782,7 @@ ss_Enum.toString = function  Enum$toString(enumType, value) {
 		var parts = [];
 		for (var i in values) {
 			if (values[i] & value) {
-				parts.add(i);
+				ss.add(parts, i);
 			}
 		}
 		if (!parts.length) {
@@ -1902,67 +1796,67 @@ ss_Enum.toString = function  Enum$toString(enumType, value) {
 // CultureInfo
 
 var ss_CultureInfo = function CultureInfo$(name, numberFormat, dateFormat) {
-    this.name = name;
-    this.numberFormat = numberFormat;
-    this.dateFormat = dateFormat;
+	this.name = name;
+	this.numberFormat = numberFormat;
+	this.dateFormat = dateFormat;
 };
-Type.registerClass(global, 'ss.CultureInfo', ss_CultureInfo);
+ss.registerClass(global, 'ss.CultureInfo', ss_CultureInfo);
 
 ss_CultureInfo.InvariantCulture = new ss_CultureInfo('en-US',
-    {
-        naNSymbol: 'NaN',
-        negativeSign: '-',
-        positiveSign: '+',
-        negativeInfinityText: '-Infinity',
-        positiveInfinityText: 'Infinity',
-        
-        percentSymbol: '%',
-        percentGroupSizes: [3],
-        percentDecimalDigits: 2,
-        percentDecimalSeparator: '.',
-        percentGroupSeparator: ',',
-        percentPositivePattern: '{0} %',
-        percentNegativePattern: '-{0} %',
+	{
+		naNSymbol: 'NaN',
+		negativeSign: '-',
+		positiveSign: '+',
+		negativeInfinityText: '-Infinity',
+		positiveInfinityText: 'Infinity',
+		
+		percentSymbol: '%',
+		percentGroupSizes: [3],
+		percentDecimalDigits: 2,
+		percentDecimalSeparator: '.',
+		percentGroupSeparator: ',',
+		percentPositivePattern: '{0} %',
+		percentNegativePattern: '-{0} %',
 
-        currencySymbol:'$',
-        currencyGroupSizes: [3],
-        currencyDecimalDigits: 2,
-        currencyDecimalSeparator: '.',
-        currencyGroupSeparator: ',',
-        currencyNegativePattern: '(${0})',
-        currencyPositivePattern: '${0}',
+		currencySymbol:'$',
+		currencyGroupSizes: [3],
+		currencyDecimalDigits: 2,
+		currencyDecimalSeparator: '.',
+		currencyGroupSeparator: ',',
+		currencyNegativePattern: '(${0})',
+		currencyPositivePattern: '${0}',
 
-        numberGroupSizes: [3],
-        numberDecimalDigits: 2,
-        numberDecimalSeparator: '.',
-        numberGroupSeparator: ','
-    },
-    {
-        amDesignator: 'AM',
-        pmDesignator: 'PM',
+		numberGroupSizes: [3],
+		numberDecimalDigits: 2,
+		numberDecimalSeparator: '.',
+		numberGroupSeparator: ','
+	},
+	{
+		amDesignator: 'AM',
+		pmDesignator: 'PM',
 
-        dateSeparator: '/',
-        timeSeparator: ':',
+		dateSeparator: '/',
+		timeSeparator: ':',
 
-        gmtDateTimePattern: 'ddd, dd MMM yyyy HH:mm:ss \'GMT\'',
-        universalDateTimePattern: 'yyyy-MM-dd HH:mm:ssZ',
-        sortableDateTimePattern: 'yyyy-MM-ddTHH:mm:ss',
-        dateTimePattern: 'dddd, MMMM dd, yyyy h:mm:ss tt',
+		gmtDateTimePattern: 'ddd, dd MMM yyyy HH:mm:ss \'GMT\'',
+		universalDateTimePattern: 'yyyy-MM-dd HH:mm:ssZ',
+		sortableDateTimePattern: 'yyyy-MM-ddTHH:mm:ss',
+		dateTimePattern: 'dddd, MMMM dd, yyyy h:mm:ss tt',
 
-        longDatePattern: 'dddd, MMMM dd, yyyy',
-        shortDatePattern: 'M/d/yyyy',
+		longDatePattern: 'dddd, MMMM dd, yyyy',
+		shortDatePattern: 'M/d/yyyy',
 
-        longTimePattern: 'h:mm:ss tt',
-        shortTimePattern: 'h:mm tt',
+		longTimePattern: 'h:mm:ss tt',
+		shortTimePattern: 'h:mm tt',
 
-        firstDayOfWeek: 0,
-        dayNames: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
-        shortDayNames: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
-        minimizedDayNames: ['Su','Mo','Tu','We','Th','Fr','Sa'],
+		firstDayOfWeek: 0,
+		dayNames: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
+		shortDayNames: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+		minimizedDayNames: ['Su','Mo','Tu','We','Th','Fr','Sa'],
 
-        monthNames: ['January','February','March','April','May','June','July','August','September','October','November','December',''],
-        shortMonthNames: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','']
-    });
+		monthNames: ['January','February','March','April','May','June','July','August','September','October','November','December',''],
+		shortMonthNames: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','']
+	});
 ss_CultureInfo.CurrentCulture = ss_CultureInfo.InvariantCulture;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1970,52 +1864,29 @@ ss_CultureInfo.CurrentCulture = ss_CultureInfo.InvariantCulture;
 
 var ss_IEnumerator = function IEnumerator$() { };
 ss_IEnumerator.prototype = {
-    get_current: null,
-    moveNext: null,
-    reset: null
+	current: null,
+	moveNext: null,
+	reset: null
 };
 
-Type.registerInterface(global, 'ss.IEnumerator', ss_IEnumerator, ss_IDisposable);
+ss.registerInterface(global, 'ss.IEnumerator', ss_IEnumerator, ss_IDisposable);
 
 ///////////////////////////////////////////////////////////////////////////////
 // IEnumerable
 
 var ss_IEnumerable = function IEnumerable$() { };
 ss_IEnumerable.prototype = {
-    getEnumerator: null
+	getEnumerator: null
 };
 
-ss_IEnumerable.isAssignableFrom = function IEnumerable$isAssignableFrom(type) {
-	if (type == Array)
-		return true;
-	else
-		return Type.prototype.isAssignableFrom.call(this, type);
-};
+ss.registerInterface(global, 'ss.IEnumerable', ss_IEnumerable);
 
-Type.registerInterface(global, 'ss.IEnumerable', ss_IEnumerable);
+ss.getEnumerator = function ss$getEnumerator(obj) {
+	return ss.isArray(obj) ? new ss_ArrayEnumerator(obj) : obj.getEnumerator();
+};
 
 ///////////////////////////////////////////////////////////////////////////////
-// IEquatable
-
-var ss_IEquatable = function IEquatable$() { };
-ss_IEquatable.prototype = {
-    equals: null
-};
-
-Type.registerInterface(global, 'ss.IEquatable', ss_IEquatable);
-
-///////////////////////////////////////////////////////////////////////////////
-// IHashable
-
-var ss_IHashable = function IHashable$() { };
-ss_IHashable.prototype = {
-    getHashCode: null
-};
-
-Type.registerInterface(global, 'ss.IHashable', ss_IHashable, ss_IEquatable);
-
-///////////////////////////////////////////////////////////////////////////////
-// IEnumerable
+// ICollection
 
 var ss_ICollection = function ICollection$() { };
 ss_ICollection.prototype = {
@@ -2026,14 +1897,57 @@ ss_ICollection.prototype = {
 	remove: null
 };
 
-ss_ICollection.isAssignableFrom = function ICollection$isAssignableFrom(type) {
-	if (type == Array)
-		return true;
-	else
-		return Type.prototype.isAssignableFrom.call(this, type);
+ss.registerInterface(global, 'ss.ICollection', ss_IEnumerable);
+
+ss.count = function ss$count(obj) {
+	return ss.isArray(obj) ? obj.length : obj.get_count();
 };
 
-Type.registerInterface(global, 'ss.ICollection', ss_IEnumerable);
+ss.add = function ss$add(obj, item) {
+	ss.isArray(obj) ? obj.push(item) : obj.add(item);
+};
+
+ss.clear = function ss$clear(obj, item) {
+	ss.isArray(obj) ? (obj.length = 0) : obj.clear();
+};
+
+ss.remove = function ss$remove(obj, item) {
+	if (ss.isArray(obj)) {
+		var index = ss.indexOf(obj, item);
+		if (index >= 0) {
+			obj.splice(index, 1);
+			return true;
+		}
+		return false;
+	}
+	else
+		return obj.remove(item);
+};
+
+ss.contains = function ss$contains(obj, item) {
+	return ss.isArray(obj) ? (ss.indexOf(obj, item) >= 0) : obj.contains(item);
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// IEqualityComparer
+
+var ss_IEqualityComparer = function IEqualityComparer$() { };
+ss_IEqualityComparer.prototype = {
+	areEqual: null,
+	getObjectHashCode: null
+};
+
+ss.registerInterface(global, 'ss.IEqualityComparer', ss_IEqualityComparer);
+
+///////////////////////////////////////////////////////////////////////////////
+// IComparer
+
+var ss_IComparer = function IComparer$() { };
+ss_IComparer.prototype = {
+	compare: null
+};
+
+ss.registerInterface(global, 'ss.IComparer', ss_IComparer);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Nullable
@@ -2041,7 +1955,7 @@ Type.registerInterface(global, 'ss.ICollection', ss_IEnumerable);
 var ss_Nullable = function Nullable$() {
 };
 
-Type.registerClass(global, 'ss.Nullable', ss_Nullable);
+ss.registerClass(global, 'ss.Nullable', ss_Nullable);
 
 ss_Nullable.unbox = function Nullable$unbox(instance) {
 	if (!ss.isValue(instance))
@@ -2152,7 +2066,7 @@ ss_Nullable.cpl = function Nullable$cpl(a) {
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-// IEnumerable
+// IList
 
 var ss_IList = function IList$() { };
 ss_IList.prototype = {
@@ -2163,14 +2077,36 @@ ss_IList.prototype = {
 	removeAt: null
 };
 
-ss_IList.isAssignableFrom = function IList$isAssignableFrom(type) {
-	if (type == Array)
-		return true;
+ss.registerInterface(global, 'ss.IList', ss_IList, ss_ICollection, ss_IEnumerable);
+
+ss.getItem = function ss$getItem(obj, index) {
+	return ss.isArray(obj) ? obj[index] : obj.get_item(index);
+}
+
+ss.setItem = function ss$setItem(obj, index, value) {
+	ss.isArray(obj) ? (obj[index] = value) : obj.set_item(index, value);
+}
+
+ss.indexOf = function ss$indexOf(obj, item) {
+	if (ss.isArray(obj)) {
+		for (var i = 0; i < obj.length; i++) {
+			if (ss.staticEquals(obj[i], item)) {
+				return i;
+			}
+		}
+		return -1;
+	}
 	else
-		return Type.prototype.isAssignableFrom.call(this, type);
+		return obj.indexOf(item);
 };
 
-Type.registerInterface(global, 'ss.IList', ss_IList, ss_ICollection, ss_IEnumerable);
+ss.insert = function ss$insert(obj, index, item) {
+	ss.isArray(obj) ? obj.splice(index, 0, item) : obj.insert(index, item);
+};
+
+ss.removeAt = function ss$removeAt(obj, index) {
+	ss.isArray(obj) ? obj.splice(index, 1) : obj.removeAt(index);
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 // IDictionary
@@ -2187,14 +2123,14 @@ ss_IDictionary.prototype = {
 	tryGetValue: null
 };
 
-Type.registerInterface(global, 'ss.IDictionary', ss_IDictionary, [ss_IEnumerable]);
+ss.registerInterface(global, 'ss.IDictionary', ss_IDictionary, [ss_IEnumerable]);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Int32
 
 var ss_Int32 = function Int32$() { };
 
-Type.registerClass(global, 'ss.Int32', ss_Int32);
+ss.registerClass(global, 'ss.Int32', ss_Int32, Object, [ ss_IEquatable, ss_IComparable ]);
 ss_Int32.__class = false;
 
 ss_Int32.isInstanceOfType = function Int32$isInstanceOfType(instance) {
@@ -2218,7 +2154,7 @@ ss_Int32.trunc = function Int32$trunc(n) {
 
 var ss_JsDate = function JsDate$() { };
 
-Type.registerClass(global, 'ss.JsDate', ss_JsDate);
+ss.registerClass(global, 'ss.JsDate', ss_JsDate, Object, [ ss_IEquatable, ss_IComparable ]);
 
 ss_JsDate.createInstance = function JsDate$createInstance() {
 	return new Date();
@@ -2232,55 +2168,84 @@ ss_JsDate.isInstanceOfType = function JsDate$isInstanceOfType(instance) {
 // ArrayEnumerator
 
 var ss_ArrayEnumerator = function ArrayEnumerator$(array) {
-    this._array = array;
-    this._index = -1;
+	this._array = array;
+	this._index = -1;
 };
 ss_ArrayEnumerator.prototype = {
-    moveNext: function ArrayEnumerator$moveNext() {
-        this._index++;
-        return (this._index < this._array.length);
-    },
-    reset: function ArrayEnumerator$reset() {
-        this._index = -1;
-    },
-	get_current: function ArrayEnumerator$get_current() {
+	moveNext: function ArrayEnumerator$moveNext() {
+		this._index++;
+		return (this._index < this._array.length);
+	},
+	reset: function ArrayEnumerator$reset() {
+		this._index = -1;
+	},
+	current: function ArrayEnumerator$current() {
 		if (this._index < 0 || this._index >= this._array.length)
 			throw 'Invalid operation';
 		return this._array[this._index];
 	},
-    dispose: function ArrayEnumerator$dispose() {
-    }
+	dispose: function ArrayEnumerator$dispose() {
+	}
 };
 
-Type.registerClass(global, 'ss.ArrayEnumerator', ss_ArrayEnumerator, null, [ss_IEnumerator, ss_IDisposable]);
+ss.registerClass(global, 'ss.ArrayEnumerator', ss_ArrayEnumerator, null, [ss_IEnumerator, ss_IDisposable]);
 
 ///////////////////////////////////////////////////////////////////////////////
 // ObjectEnumerator
 
 var ss_ObjectEnumerator = function ObjectEnumerator$(o) {
-    this._keys = Object.keys(o);
-    this._index = -1;
+	this._keys = Object.keys(o);
+	this._index = -1;
 	this._object = o;
 };
 ss_ObjectEnumerator.prototype = {
-    moveNext: function ObjectEnumerator$moveNext() {
-        this._index++;
-        return (this._index < this._keys.length);
-    },
-    reset: function ObjectEnumerator$reset() {
-        this._index = -1;
-    },
-	get_current: function ObjectEnumerator$get_current() {
+	moveNext: function ObjectEnumerator$moveNext() {
+		this._index++;
+		return (this._index < this._keys.length);
+	},
+	reset: function ObjectEnumerator$reset() {
+		this._index = -1;
+	},
+	current: function ObjectEnumerator$current() {
 		if (this._index < 0 || this._index >= this._keys.length)
 			throw 'Invalid operation';
 		var k = this._keys[this._index];
 		return { key: k, value: this._object[k] };
 	},
-    dispose: function ObjectEnumerator$dispose() {
-    }
+	dispose: function ObjectEnumerator$dispose() {
+	}
 };
 
-Type.registerClass(global, 'ss.ObjectEnumerator', ss_ObjectEnumerator, null, [ss_IEnumerator, ss_IDisposable]);
+ss.registerClass(global, 'ss.ObjectEnumerator', ss_ObjectEnumerator, null, [ss_IEnumerator, ss_IDisposable]);
+
+///////////////////////////////////////////////////////////////////////////////
+// EqualityComparer
+
+var ss_EqualityComparer = function EqualityComparer$() {
+};
+ss_EqualityComparer.prototype.areEqual = function EqualityComparer$areEqual(x, y) {
+	return ss.staticEquals(x, y);
+};
+ss_EqualityComparer.prototype.getObjectHashCode = function EqualityComparer$getObjectHashCode(obj) {
+	return ss.isValue(obj) ? ss.getHashCode(obj) : 0;
+};
+ss.registerClass(global, 'ss.EqualityComparer', ss_EqualityComparer, null, ss_IEqualityComparer);
+ss_EqualityComparer.def = new ss_EqualityComparer();
+
+///////////////////////////////////////////////////////////////////////////////
+// Comparer
+
+var ss_Comparer = function Comparer$(f) {
+	this.f = f;
+};
+ss_Comparer.prototype.compare = function Comparer$compare(x, y) {
+	return this.f(x, y);
+};
+ss_Comparer.create = function Comparer$create(f) {
+	return new ss_Comparer(f);
+};
+ss.registerClass(global, 'ss.Comparer', ss_Comparer, null, ss_IComparer);
+ss_Comparer.def = new ss_Comparer(ss.compare);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Dictionary
@@ -2301,7 +2266,7 @@ ss_$DictionaryCollection.prototype = {
 				if (this._dict.buckets.hasOwnProperty(e)) {
 					var bucket = this._dict.buckets[e];
 					for (var i = 0; i < bucket.length; i++) {
-						if (bucket[i].value.equals(v))
+						if (this._dict.comparer.areEqual(bucket[i].value, v))
 							return true;
 					}
 				}
@@ -2324,21 +2289,23 @@ ss_$DictionaryCollection.prototype = {
 };
 
 var ss_Dictionary$2 = function Dictionary$2$(TKey, TValue) {
-	var $type = function(o) {
+	var $type = function(o, cmp) {
 		this.countField = 0;
 		this.buckets = {};
 
-		if (ss_IDictionary.isInstanceOfType(o)) {
-			var e = Type.cast(o, ss_IDictionary).getEnumerator();
+		this.comparer = cmp || ss_EqualityComparer.def;
+
+		if (ss.isInstanceOfType(o, ss_IDictionary)) {
+			var e = ss.getEnumerator(o);
 			try {
 				while (e.moveNext()) {
-					var c = e.get_current();
+					var c = e.current();
 					this.add(c.key, c.value);
 				}
 			}
 			finally {
-				if (ss_IDisposable.isInstanceOfType(e)) {
-					Type.cast(e, ss_IDisposable).dispose();
+				if (ss.isInstanceOfType(e, ss_IDisposable)) {
+					ss.cast(e, ss_IDisposable).dispose();
 				}
 			}
 		}
@@ -2352,12 +2319,12 @@ var ss_Dictionary$2 = function Dictionary$2$(TKey, TValue) {
 
 	$type.prototype = {
 		_setOrAdd: function(key, value, add) {
-			var hash = key.getHashCode();
+			var hash = this.comparer.getObjectHashCode(key);
 			var entry = { key: key, value: value };
 			if (this.buckets.hasOwnProperty(hash)) {
 				var array = this.buckets[hash];
 				for (var i = 0; i < array.length; i++) {
-					if (array[i].key.equals(key)) {
+					if (this.comparer.areEqual(array[i].key, key)) {
 						if (add)
 							throw 'Key ' + key + ' already exists.';
 						array[i] = entry;
@@ -2380,12 +2347,12 @@ var ss_Dictionary$2 = function Dictionary$2$(TKey, TValue) {
 		},
 
 		_get: function(key) {
-			var hash = key.getHashCode();
+			var hash = this.comparer.getObjectHashCode(key);
 			if (this.buckets.hasOwnProperty(hash)) {
 				var array = this.buckets[hash];
 				for (var i = 0; i < array.length; i++) {
 					var entry = array[i];
-					if (entry.key.equals(key))
+					if (this.comparer.areEqual(entry.key, key))
 						return entry.value !== undefined ? entry.value : null;
 				}
 			}
@@ -2406,19 +2373,19 @@ var ss_Dictionary$2 = function Dictionary$2$(TKey, TValue) {
 				return true;
 			}
 			else {
-				value.$ = TValue.getDefaultValue();
+				value.$ = ss.getDefaultValue(TValue);
 				return false;
 			}
 		},
 
 		containsKey: function(key) {
-			var hash = key.getHashCode();
+			var hash = this.comparer.getObjectHashCode(key);
 			if (!this.buckets.hasOwnProperty(hash))
 				return false;
 
 			var array = this.buckets[hash];
 			for (var i = 0; i < array.length; i++) {
-				if (array[i].key.equals(key))
+				if (this.comparer.areEqual(array[i].key, key))
 					return true;
 			}
 			return false;
@@ -2430,13 +2397,13 @@ var ss_Dictionary$2 = function Dictionary$2$(TKey, TValue) {
 		},
 
 		remove: function(key) {
-			var hash = key.getHashCode();
+			var hash = this.comparer.getObjectHashCode(key);
 			if (!this.buckets.hasOwnProperty(hash))
 				return false;
 
 			var array = this.buckets[hash];
 			for (var i = 0; i < array.length; i++) {
-				if (array[i].key.equals(key)) {
+				if (this.comparer.areEqual(array[i].key, key)) {
 					array.splice(i, 1);
 					if (array.length == 0) delete this.buckets[hash];
 					this.countField--;
@@ -2477,71 +2444,71 @@ var ss_Dictionary$2 = function Dictionary$2$(TKey, TValue) {
 		}
 	};
 
-	$type.registerGenericClassInstance($type, ss_Dictionary$2, [TKey, TValue], function() { return null; }, function() { return [ ss_IDictionary, ss_IEnumerable ]; });
+	ss.registerGenericClassInstance($type, ss_Dictionary$2, [TKey, TValue], function() { return null; }, function() { return [ ss_IDictionary, ss_IEnumerable ]; });
 	return $type;
 };
 
-Type.registerGenericClass(global, 'ss.Dictionary$2', ss_Dictionary$2, 2);
-Type.registerClass(global, 'ss.$DictionaryCollection', ss_$DictionaryCollection, null, [ss_IEnumerable, ss_ICollection]);
+ss.registerGenericClass(global, 'ss.Dictionary$2', ss_Dictionary$2, 2);
+ss.registerClass(global, 'ss.$DictionaryCollection', ss_$DictionaryCollection, null, [ss_IEnumerable, ss_ICollection]);
 
 ///////////////////////////////////////////////////////////////////////////////
 // IDisposable
 
 var ss_IDisposable = function IDisposable$() { };
 ss_IDisposable.prototype = {
-    dispose: null
+	dispose: null
 };
-Type.registerInterface(global, 'ss.IDisposable', ss_IDisposable);
+ss.registerInterface(global, 'ss.IDisposable', ss_IDisposable);
 
 ///////////////////////////////////////////////////////////////////////////////
 // StringBuilder
 
 var ss_StringBuilder = function StringBuilder$(s) {
-    this._parts = ss.isNullOrUndefined(s) || s === '' ? [] : [s];
-    this.isEmpty = this._parts.length == 0;
+	this._parts = ss.isNullOrUndefined(s) || s === '' ? [] : [s];
+	this.isEmpty = this._parts.length == 0;
 }
 ss_StringBuilder.prototype = {
-    append: function StringBuilder$append(s) {
-        if (!ss.isNullOrUndefined(s) && s !== '') {
-            this._parts.add(s);
-            this.isEmpty = false;
-        }
-        return this;
-    },
+	append: function StringBuilder$append(s) {
+		if (!ss.isNullOrUndefined(s) && s !== '') {
+			ss.add(this._parts, s);
+			this.isEmpty = false;
+		}
+		return this;
+	},
 
 	appendChar: function StringBuilder$appendChar(c) {
 		return this.append(String.fromCharCode(c));
 	},
 
-    appendLine: function StringBuilder$appendLine(s) {
-        this.append(s);
-        this.append('\r\n');
-        this.isEmpty = false;
-        return this;
-    },
+	appendLine: function StringBuilder$appendLine(s) {
+		this.append(s);
+		this.append('\r\n');
+		this.isEmpty = false;
+		return this;
+	},
 
 	appendLineChar: function StringBuilder$appendLineChar(c) {
 		return this.appendLine(String.fromCharCode(c));
 	},
 
-    clear: function StringBuilder$clear() {
-        this._parts = [];
-        this.isEmpty = true;
-    },
+	clear: function StringBuilder$clear() {
+		this._parts = [];
+		this.isEmpty = true;
+	},
 
-    toString: function StringBuilder$toString() {
-        return this._parts.join('');
-    }
+	toString: function StringBuilder$toString() {
+		return this._parts.join('');
+	}
 };
 
-Type.registerClass(global, 'ss.StringBuilder', ss_StringBuilder);
+ss.registerClass(global, 'ss.StringBuilder', ss_StringBuilder);
 
 ///////////////////////////////////////////////////////////////////////////////
 // EventArgs
 
 var ss_EventArgs = function EventArgs$() {
 }
-Type.registerClass(global, 'ss.EventArgs', ss_EventArgs);
+ss.registerClass(global, 'ss.EventArgs', ss_EventArgs);
 
 ss_EventArgs.Empty = new ss_EventArgs();
 
@@ -2552,7 +2519,7 @@ var ss_Exception = function Exception$(message, innerException) {
 	this._message = message || null;
 	this._innerException = innerException || null;
 }
-Type.registerClass(global, 'ss.Exception', ss_Exception);
+ss.registerClass(global, 'ss.Exception', ss_Exception);
 
 ss_Exception.prototype = {
 	get_message: function Exception$get_message() {
@@ -2564,7 +2531,7 @@ ss_Exception.prototype = {
 };
 
 ss_Exception.wrap = function Exception$wrap(o) {
-	if (ss_Exception.isInstanceOfType(o)) {
+	if (ss.isInstanceOfType(o, ss_Exception)) {
 		return o;
 	}
 	else if (o instanceof Error) {
@@ -2581,7 +2548,7 @@ ss_Exception.wrap = function Exception$wrap(o) {
 var ss_NotSupportedException = function NotSupportedException$(message, innerException) {
 	ss_Exception.call(this, message, innerException);
 };
-Type.registerClass(global, 'ss.NotSupportedException', ss_NotSupportedException, ss_Exception);
+ss.registerClass(global, 'ss.NotSupportedException', ss_NotSupportedException, ss_Exception);
 
 ////////////////////////////////////////////////////////////////////////////////
 // AggregateException
@@ -2591,7 +2558,7 @@ var ss_AggregateException = function AggregateException$(message, innerException
 		innerExceptions = message;
 		message = 'One or more errors occurred.';
 	}
-	innerExceptions = ss.isValue(innerExceptions) ? Array.fromEnumerable(innerExceptions) : null;
+	innerExceptions = ss.isValue(innerExceptions) ? ss.arrayFromEnumerable(innerExceptions) : null;
 
 	ss_Exception.call(this, message, innerExceptions && innerExceptions.length ? innerExceptions[0] : null);
 	this._innerExceptions = innerExceptions;
@@ -2601,21 +2568,21 @@ ss_AggregateException.prototype = {
 		return this._innerExceptions;
 	}
 };
-Type.registerClass(global, 'ss.AggregateException', ss_AggregateException, ss_Exception);
+ss.registerClass(global, 'ss.AggregateException', ss_AggregateException, ss_Exception);
 
 ////////////////////////////////////////////////////////////////////////////////
 // PromiseException
 
 var ss_PromiseException = function PromiseException(args) {
 	ss_Exception.call(this, args[0] ? args[0].toString() : 'An error occurred');
-	this._arguments = args.clone();
+	this._arguments = ss.arrayClone(args);
 };
 ss_PromiseException.prototype = {
 	get_arguments: function PromiseException$get_arguments() {
 		return this._arguments;
 	}
 };
-Type.registerClass(global, 'ss.PromiseException', ss_PromiseException, ss_Exception);
+ss.registerClass(global, 'ss.PromiseException', ss_PromiseException, ss_Exception);
 
 ////////////////////////////////////////////////////////////////////////////////
 // JsErrorException
@@ -2629,46 +2596,46 @@ ss_JsErrorException.prototype = {
 		return this._error;
 	}
 };
-Type.registerClass(global, 'ss.JsErrorException', ss_JsErrorException, ss_Exception);
+ss.registerClass(global, 'ss.JsErrorException', ss_JsErrorException, ss_Exception);
 
 ///////////////////////////////////////////////////////////////////////////////
 // IteratorBlockEnumerable
 
 var ss_IteratorBlockEnumerable = function IteratorBlockEnumerable$(getEnumerator, $this) {
-    this._getEnumerator = getEnumerator;
-    this._this = $this;
+	this._getEnumerator = getEnumerator;
+	this._this = $this;
 };
 
 ss_IteratorBlockEnumerable.prototype = {
-    getEnumerator: function IteratorBlockEnumerable$getEnumerator() {
-        return this._getEnumerator.call(this._this);
-    }
+	getEnumerator: function IteratorBlockEnumerable$getEnumerator() {
+		return this._getEnumerator.call(this._this);
+	}
 };
 
-Type.registerClass(global, 'ss.IteratorBlockEnumerable', ss_IteratorBlockEnumerable, null, ss_IEnumerable);
+ss.registerClass(global, 'ss.IteratorBlockEnumerable', ss_IteratorBlockEnumerable, null, ss_IEnumerable);
 
 ///////////////////////////////////////////////////////////////////////////////
 // IteratorBlockEnumerator
 
 var ss_IteratorBlockEnumerator = function IteratorBlockEnumerator$(moveNext, getCurrent, dispose, $this) {
-    this._moveNext = moveNext;
-    this._getCurrent = getCurrent;
-    this._dispose = dispose;
-    this._this = $this;
+	this._moveNext = moveNext;
+	this._getCurrent = getCurrent;
+	this._dispose = dispose;
+	this._this = $this;
 };
 
 ss_IteratorBlockEnumerator.prototype = {
 	moveNext: function IteratorBlockEnumerator$moveNext() {
-        try {
-		    return this._moveNext.call(this._this);
-        }
-        catch (ex) {
-            if (this._dispose)
-                this._dispose.call(this._this);
-            throw ex;
-        }
+		try {
+			return this._moveNext.call(this._this);
+		}
+		catch (ex) {
+			if (this._dispose)
+				this._dispose.call(this._this);
+			throw ex;
+		}
 	},
-	get_current: function IteratorBlockEnumerator$get_current() {
+	current: function IteratorBlockEnumerator$current() {
 		return this._getCurrent.call(this._this);
 	},
 	reset: function IteratorBlockEnumerator$reset() {
@@ -2676,11 +2643,29 @@ ss_IteratorBlockEnumerator.prototype = {
 	},
 	dispose: function IteratorBlockEnumerator$dispose() {
 		if (this._dispose)
-            this._dispose.call(this._this);
+			this._dispose.call(this._this);
 	}
 };
 
-Type.registerClass(global, 'ss.IteratorBlockEnumerator', ss_IteratorBlockEnumerator, null, [ss_IEnumerator, ss_IDisposable]);
+ss.registerClass(global, 'ss.IteratorBlockEnumerator', ss_IteratorBlockEnumerator, null, [ss_IEnumerator, ss_IDisposable]);
+
+///////////////////////////////////////////////////////////////////////////////
+// Lazy
+
+var ss_Lazy = function Lazy$(valueFactory) {
+	this._valueFactory = valueFactory;
+	this.isValueCreated = false;
+};
+ss_Lazy.prototype.value = function Lazy$value() {
+	if (!this.isValueCreated) {
+		this._value = this._valueFactory();
+		delete this._valueFactory;
+		this.isValueCreated = true;
+	}
+	return this._value;
+};
+ss.registerClass(global, 'ss.Lazy', ss_Lazy);
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // Task
@@ -2830,7 +2815,7 @@ ss_Task.whenAll = function Task$whenAll(tasks) {
 							cancelled = true;
 							break;
 						case 7:
-							exceptions.addRange(t.exception.get_innerExceptions());
+							ss.arrayAddRange(exceptions, t.exception.get_innerExceptions());
 							break;
 						default:
 							throw 'Invalid task status ' + t.status;
@@ -2937,14 +2922,14 @@ ss_Task.fromNode = function  Task$fromNode(t, f, m) {
 	return tcs.task;
 };
 
-Type.registerClass(global, 'ss.Task', ss_Task, null, ss_IDisposable);
+ss.registerClass(global, 'ss.Task', ss_Task, null, ss_IDisposable);
 
 ////////////////////////////////////////////////////////////////////////////////
 // TaskStatus
 var ss_TaskStatus = function() {
 };
 ss_TaskStatus.prototype = { created: 0, running: 3, ranToCompletion: 5, canceled: 6, faulted: 7 };
-Type.registerEnum(global, 'ss.TaskStatus', ss_TaskStatus, false);
+ss.registerEnum(global, 'ss.TaskStatus', ss_TaskStatus, false);
 
 ///////////////////////////////////////////////////////////////////////////////
 // TaskCompletionSource
@@ -2973,8 +2958,8 @@ ss_TaskCompletionSource.prototype = {
 		return this.task._complete(result);
 	},
 	trySetException: function TaskCompletionSource$setException(exception) {
-		if (!Type.canCast(exception, ss_AggregateException)) {
-			if (Type.canCast(exception, ss_Exception))
+		if (!ss.isInstanceOfType(exception, ss_AggregateException)) {
+			if (ss.isInstanceOfType(exception, ss_Exception))
 				exception = [exception];
 			exception = new ss_AggregateException(exception);
 		}
@@ -2982,41 +2967,23 @@ ss_TaskCompletionSource.prototype = {
 	}
 };
 
-Type.registerClass(global, 'ss.TaskCompletionSource', ss_TaskCompletionSource);
+ss.registerClass(global, 'ss.TaskCompletionSource', ss_TaskCompletionSource);
 
 ///////////////////////////////////////////////////////////////////////////////
 // CancelEventArgs
 
 var ss_CancelEventArgs = function CancelEventArgs$() {
-    ss_CancelEventArgs.call(this);
-    this.cancel = false;
+	ss_CancelEventArgs.call(this);
+	this.cancel = false;
 }
-Type.registerClass(global, 'ss.CancelEventArgs', ss_CancelEventArgs, ss_EventArgs);
-
-///////////////////////////////////////////////////////////////////////////////
-// Interfaces
-
-var ss_IApplication = function() { };
-Type.registerInterface(global, 'ss.IApplication', ss_IApplication);
-
-var ss_IContainer = function () { };
-Type.registerInterface(global, 'ss.IContainer', ss_IContainer);
-
-var ss_IObjectFactory = function () { };
-Type.registerInterface(global, 'ss.IObjectFactory', ss_IObjectFactory);
-
-var ss_IEventManager = function () { };
-Type.registerInterface(global, 'ss.IEventManager', ss_IEventManager);
-
-var ss_IInitializable = function () { };
-Type.registerInterface(global, 'ss.IInitializable', ss_IInitializable);
+ss.registerClass(global, 'ss.CancelEventArgs', ss_CancelEventArgs, ss_EventArgs);
 
 if (global.ss) {
-  for (var n in ss) {
-    if (ss.hasOwnProperty(n))
-      global.ss[n] = ss[n];
-  }
+	for (var n in ss) {
+		if (ss.hasOwnProperty(n))
+			global.ss[n] = ss[n];
+	}
 }
 else {
-  global.ss = ss;
+	global.ss = ss;
 }

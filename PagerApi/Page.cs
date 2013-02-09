@@ -6,9 +6,8 @@ using KnockoutApi;
 
 namespace PagerApi
 {		
-   [Imported(IsRealType=true)]
-   [ScriptNamespace("pager")]
-   [ScriptName("Page")]         	   
+   [Imported]
+   [ScriptNamespace("pager")]      
    public class Page
    {      
       public Page(Element element, Func<object> valueAccessor, Func<System.Collections.JsDictionary> allBindingsAccessor, object viewModel, object bindingContext) { }

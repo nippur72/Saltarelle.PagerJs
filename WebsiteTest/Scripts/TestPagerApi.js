@@ -14,21 +14,21 @@
 			if (!this.$pageAccordionItemHidden) {
 				this.$pageAccordionItemHidden = true;
 				$(this.getAccordionBody()).hide();
-				if (ss.isValue(callback)) {
+				if (!ss.staticEquals(callback, null)) {
 					callback();
 				}
 			}
 			else {
 				// else use a slideUp animation
 				$(this.getAccordionBody()).slideUp();
-				if (ss.isValue(callback)) {
+				if (!ss.staticEquals(callback, null)) {
 					callback();
 				}
 			}
 		},
 		showElement: function(callback) {
 			$(this.getAccordionBody()).slideDown();
-			if (ss.isValue(callback)) {
+			if (!ss.staticEquals(callback, null)) {
 				callback();
 			}
 		}
@@ -41,9 +41,7 @@
 	$PageAccordionItemBindingHandler.prototype = {
 		init: function(element, valueAccessor, allBindingsAccessor, viewModel, bindingContext) {
 			var pageAccordionItem = new $PageAccordionItem(element, valueAccessor, allBindingsAccessor, viewModel, bindingContext);
-			pageAccordionItem.init();
-		},
-		update: function(element, valueAccessor, allBindingsAccessor, viewModel, bindingContext) {
+			return pageAccordionItem.init();
 		}
 	};
 	////////////////////////////////////////////////////////////////////////////////
@@ -55,9 +53,11 @@
 	var $TestPagerApi_Program = function() {
 	};
 	$TestPagerApi_Program.$main = function() {
-		window.addEventListener('load', $TestPagerApi_Program.$onLoaded);
+		$(function() {
+			$TestPagerApi_Program.$documentReady();
+		});
 	};
-	$TestPagerApi_Program.$onLoaded = function(e) {
+	$TestPagerApi_Program.$documentReady = function() {
 		ko.bindingHandlers['page-accordion-item'] = new $PageAccordionItemBindingHandler();
 		var mod = new $TestPagerApi_MyViewModel();
 		// if using History.js
@@ -72,9 +72,9 @@
 		// if using HTML5 native history
 		pager.start();
 	};
-	Type.registerClass(global, 'PageAccordionItem', $PageAccordionItem, pager.Page);
-	Type.registerClass(global, 'PageAccordionItemBindingHandler', $PageAccordionItemBindingHandler);
-	Type.registerClass(global, 'TestPagerApi.MyViewModel', $TestPagerApi_MyViewModel, Object);
-	Type.registerClass(global, 'TestPagerApi.Program', $TestPagerApi_Program, Object);
+	ss.registerClass(global, 'PageAccordionItem', $PageAccordionItem, pager.Page);
+	ss.registerClass(global, 'PageAccordionItemBindingHandler', $PageAccordionItemBindingHandler, Object);
+	ss.registerClass(global, 'TestPagerApi.MyViewModel', $TestPagerApi_MyViewModel);
+	ss.registerClass(global, 'TestPagerApi.Program', $TestPagerApi_Program);
 	$TestPagerApi_Program.$main();
 })();
