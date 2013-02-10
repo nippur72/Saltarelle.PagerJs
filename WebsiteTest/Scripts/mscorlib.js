@@ -358,7 +358,9 @@ ss.getTypeName = function ss$getTypeName(type) {
 ss.getInterfaces = function ss$getInterfaces(type) {
 	if (type === Array)
 		return [ ss_IEnumerable, ss_ICollection, ss_IList ];
-	else if (type === Boolean || type === Date || type === Number || type === String)
+	else if (type === Date || type === Number)
+		return [ ss_IEquatable, ss_IComparable, ss_IFormattable ];
+	else if (type === Boolean || type === String)
 		return [ ss_IEquatable, ss_IComparable ];
 	else
 		return type.__interfaces || [];
@@ -519,6 +521,25 @@ ss.applyConstructor = function ss$applyConstructor(constructor, args) {
     };
     f.prototype = constructor.prototype;
     return new f();
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// IFormattable
+
+var ss_IFormattable = function IFormattable$() { };
+ss_IFormattable.prototype = {
+	format: null
+};
+
+ss.registerInterface(global, 'ss.IFormattable', ss_IFormattable);
+
+ss.format = function ss$format(obj, fmt) {
+	if (typeof(obj) === 'number')
+		return ss.formatNumber(obj, fmt);
+	else if (ss.isDate(obj))
+		return ss.formatDate(obj, fmt);
+	else
+		return obj.format(fmt);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -797,13 +818,13 @@ ss._formatString = function ss$_formatString(format, values, useLocale) {
 							  if (ss.isNullOrUndefined(value)) {
 								  return '';
 							  }
-							  if (value.format) {
+							  if (ss.isInstanceOfType(value, ss_IFormattable)) {
 								  var formatSpec = null;
 								  var formatIndex = m.indexOf(':');
 								  if (formatIndex > 0) {
 									  formatSpec = m.substring(formatIndex + 1, m.length - 1);
 								  }
-								  return useLocale ? value.localeFormat(formatSpec) : value.format(formatSpec);
+								  return ss.format(value, formatSpec);
 							  }
 							  else {
 								  return useLocale ? value.toLocaleString() : value.toString();
@@ -1030,7 +1051,7 @@ ss.arrayAddRange = function ss$arrayAddRange(arr, items) {
 			}
 		}
 		finally {
-			if (ss_IDisposable.isInstanceOfType(e)) {
+			if (ss.isInstanceOfType(e, ss_IDisposable)) {
 				ss.cast(e, ss_IDisposable).dispose();
 			}
 		}
@@ -1127,7 +1148,7 @@ ss.arrayInsertRange = function ss$arrayInsertRange(arr, index, items) {
 			}
 		}
 		finally {
-			if (ss_IDisposable.isInstanceOfType(e)) {
+			if (ss.isInstanceOfType(e, ss_IDisposable)) {
 				ss.cast(e, ss_IDisposable).dispose();
 			}
 		}
@@ -2130,7 +2151,7 @@ ss.registerInterface(global, 'ss.IDictionary', ss_IDictionary, [ss_IEnumerable])
 
 var ss_Int32 = function Int32$() { };
 
-ss.registerClass(global, 'ss.Int32', ss_Int32, Object, [ ss_IEquatable, ss_IComparable ]);
+ss.registerClass(global, 'ss.Int32', ss_Int32, Object, [ ss_IEquatable, ss_IComparable, ss_IFormattable ]);
 ss_Int32.__class = false;
 
 ss_Int32.isInstanceOfType = function Int32$isInstanceOfType(instance) {
